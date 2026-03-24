@@ -584,7 +584,7 @@ export class CircuitBuilder {
  *
  * @example
  * ```ts
- * import { quantum } from "@hev/js-quantum";
+ * import { quantum } from "@hviana/js-quantum";
  *
  * const bellState = quantum(2, 2, (qc) => {
  *   qc.h(0);          // Hadamard on qubit 0

@@ -29,8 +29,8 @@
  *
  * @example
  * ```ts
- * import { quantum, getStateVector } from "@hev/js-quantum";
- * import { getBlochVector, getQubitState } from "@hev/js-quantum";
+ * import { quantum, getStateVector } from "@hviana/js-quantum";
+ * import { getBlochVector, getQubitState } from "@hviana/js-quantum";
  *
  * const code = quantum(2, 0, (qc) => {
  *   qc.h(0);
@@ -258,7 +258,7 @@ export function blochFromDensityMatrix(dm: DensityMatrix2x2): BlochVector {
  *
  * @example
  * ```ts
- * import { quantum, getStateVector, getBlochVector } from "@hev/js-quantum";
+ * import { quantum, getStateVector, getBlochVector } from "@hviana/js-quantum";
  *
  * const code = quantum(1, 0, (qc) => { qc.h(0); });
  * const sv = getStateVector(code);
@@ -324,7 +324,7 @@ export function blochToSpherical(bloch: BlochVector): BlochSpherical {
  *
  * @example
  * ```ts
- * import { quantum, getStateVector, getQubitState } from "@hev/js-quantum";
+ * import { quantum, getStateVector, getQubitState } from "@hviana/js-quantum";
  *
  * // Single qubit in |+⟩ state
  * const code = quantum(1, 0, (qc) => { qc.h(0); });

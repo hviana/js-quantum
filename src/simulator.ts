@@ -41,7 +41,7 @@ import * as gates from "./gates.ts";
  *
  * @example
  * ```ts
- * import { quantum, simulate } from "@hev/js-quantum";
+ * import { quantum, simulate } from "@hviana/js-quantum";
  *
  * const bell = quantum(2, 2, (qc) => {
  *   qc.h(0);
