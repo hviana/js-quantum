@@ -1,1 +1,2104 @@
-//TODO
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum and Hybrid Systems Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.min.css"
+    >
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap");
+
+      :root {
+        --wire-color: #64748b;
+        --gate-bg: #f0f9ff;
+        --gate-border: #7dd3fc;
+        --gate-text: #0c4a6e;
+        --control-dot: #1e40af;
+        --measure-color: #7c3aed;
+        --classical-color: #d97706;
+        --step-separator: #e2e8f0;
+        --circuit-bg: #fafbff;
+      }
+
+      * {
+        font-family: "IBM Plex Sans", sans-serif;
+      }
+      code, .mono {
+        font-family: "IBM Plex Mono", monospace;
+      }
+
+      .circuit-canvas {
+        cursor: default;
+      }
+      .circuit-canvas.drag-over {
+        background: #f0fdf4 !important;
+      }
+
+      .gate-chip {
+        cursor: grab;
+        user-select: none;
+        transition: all 0.15s ease;
+      }
+      .gate-chip:active {
+        cursor: grabbing;
+        transform: scale(1.05);
+      }
+
+      .drag-ghost {
+        position: fixed;
+        pointer-events: none;
+        z-index: 9999;
+        opacity: 0.85;
+        transform: scale(1.1);
+      }
+
+      .bloch-canvas {
+        touch-action: none;
+      }
+
+      .modal-overlay {
+        backdrop-filter: blur(4px);
+        animation: fadeIn 0.2s ease;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+      @keyframes slideUp {
+        from {
+          transform: translateY(20px);
+          opacity: 0;
+        }
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
+      }
+      .modal-content {
+        animation: slideUp 0.25s ease;
+      }
+
+      .loading-spinner {
+        border: 3px solid #e2e8f0;
+        border-top: 3px solid #3b82f6;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .bar-chart-bar {
+        transition: height 0.5s ease, background 0.3s ease;
+      }
+
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f5f9;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+      }
+    </style>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ["IBM Plex Sans", "sans-serif"],
+              mono: ["IBM Plex Mono", "monospace"],
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body class="bg-slate-50 min-h-screen">
+    <!-- HEADER -->
+    <header
+      class="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-40"
+    >
+      <div
+        class="max-w-screen-2xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between flex-wrap gap-2"
+      >
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">⚛️</span>
+          <h1
+            class="text-base sm:text-lg font-bold text-slate-800 leading-tight"
+          >
+            Quantum and Hybrid Systems Simulator
+          </h1>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <button
+            onclick="openQuantumEditor()"
+            class="px-3 py-1.5 text-xs sm:text-sm font-medium bg-sky-50 text-sky-700 border border-sky-200 rounded-lg hover:bg-sky-100 transition"
+          >
+            📝 Edit Quantum Code
+          </button>
+          <button
+            onclick="openClassicalEditor()"
+            class="px-3 py-1.5 text-xs sm:text-sm font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition"
+          >
+            📝 Edit Classical Code
+          </button>
+          <button
+            onclick="runSimulation()"
+            class="px-3 py-1.5 text-xs sm:text-sm font-medium bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition shadow-sm"
+          >
+            ▶️ Run Simulation
+          </button>
+          <button
+            onclick="saveProject()"
+            class="px-3 py-1.5 text-xs sm:text-sm font-medium bg-slate-100 text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-200 transition"
+          >
+            💾 Save
+          </button>
+          <button
+            onclick="loadProject()"
+            class="px-3 py-1.5 text-xs sm:text-sm font-medium bg-slate-100 text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-200 transition"
+          >
+            📂 Load
+          </button>
+          <input
+            type="file"
+            id="fileInput"
+            accept=".json"
+            class="hidden"
+            onchange="handleFileLoad(event)"
+          >
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN LAYOUT -->
+    <main class="max-w-screen-2xl mx-auto px-3 sm:px-6 py-4">
+      <div class="flex flex-col lg:flex-row gap-4">
+        <!-- OPERATIONS PANEL -->
+        <aside id="opsPanel" class="w-full lg:w-56 xl:w-64 shrink-0">
+          <div
+            class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+          >
+            <div
+              class="px-4 py-3 bg-gradient-to-r from-sky-50 to-indigo-50 border-b border-slate-200"
+            >
+              <h2 class="font-semibold text-sm text-slate-700">
+                🧰 Operations
+              </h2>
+            </div>
+            <div class="p-3 space-y-3 max-h-[70vh] overflow-y-auto">
+              <!-- Classical Gates -->
+              <div>
+                <p
+                  class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5"
+                >
+                  Classical
+                </p>
+                <div class="flex flex-wrap gap-1.5" id="classical-gates"></div>
+              </div>
+              <!-- Hadamard -->
+              <div>
+                <p
+                  class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5"
+                >
+                  Hadamard
+                </p>
+                <div class="flex flex-wrap gap-1.5" id="hadamard-gates"></div>
+              </div>
+              <!-- Phase -->
+              <div>
+                <p
+                  class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5"
+                >
+                  Phase
+                </p>
+                <div class="flex flex-wrap gap-1.5" id="phase-gates"></div>
+              </div>
+              <!-- Rotation -->
+              <div>
+                <p
+                  class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5"
+                >
+                  Rotation
+                </p>
+                <div class="flex flex-wrap gap-1.5" id="rotation-gates"></div>
+              </div>
+              <!-- Quantum -->
+              <div>
+                <p
+                  class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5"
+                >
+                  Quantum
+                </p>
+                <div class="flex flex-wrap gap-1.5" id="quantum-gates"></div>
+              </div>
+              <!-- Non-Unitary -->
+              <div>
+                <p
+                  class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5"
+                >
+                  Non-Unitary
+                </p>
+                <div class="flex flex-wrap gap-1.5" id="nonunitary-gates"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Qubit config -->
+          <div
+            class="bg-white rounded-xl border border-slate-200 shadow-sm mt-3 p-3"
+          >
+            <p
+              class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2"
+            >
+              ⚙️ Circuit Config
+            </p>
+            <div class="flex items-center gap-2 mb-2">
+              <label class="text-xs text-slate-600 w-20">Qubits:</label>
+              <input
+                id="numQubitsInput"
+                type="number"
+                min="1"
+                max="10"
+                value="3"
+                class="w-16 px-2 py-1 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-300 focus:border-sky-400 outline-none"
+              >
+              <button
+                onclick="updateCircuitSize()"
+                class="text-xs px-2 py-1 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition"
+              >
+                Apply
+              </button>
+            </div>
+            <div class="flex items-center gap-2">
+              <label class="text-xs text-slate-600 w-20">Classical:</label>
+              <input
+                id="numCbitsInput"
+                type="number"
+                min="0"
+                max="10"
+                value="3"
+                class="w-16 px-2 py-1 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-300 focus:border-sky-400 outline-none"
+              >
+            </div>
+          </div>
+        </aside>
+
+        <!-- CIRCUIT + RESULTS -->
+        <div class="flex-1 min-w-0 space-y-4">
+          <!-- CIRCUIT EDITOR -->
+          <div
+            class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+          >
+            <div
+              class="px-4 py-2.5 bg-gradient-to-r from-slate-50 to-blue-50 border-b border-slate-200 flex items-center justify-between"
+            >
+              <h2 class="font-semibold text-sm text-slate-700">
+                🔬 Circuit Editor
+              </h2>
+              <button
+                onclick="clearCircuit()"
+                class="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded transition"
+              >
+                🗑️ Clear
+              </button>
+            </div>
+            <div
+              id="circuitContainer"
+              class="p-4 overflow-x-auto"
+              style="background: var(--circuit-bg)"
+            >
+              <svg
+                id="circuitSvg"
+                class="circuit-canvas"
+                width="800"
+                height="250"
+              >
+              </svg>
+            </div>
+          </div>
+
+          <!-- RESULTS -->
+          <div
+            id="resultsPanel"
+            class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hidden"
+          >
+            <div
+              class="px-4 py-2.5 bg-gradient-to-r from-emerald-50 to-teal-50 border-b border-slate-200"
+            >
+              <h2 class="font-semibold text-sm text-slate-700">
+                📊 Simulation Results
+              </h2>
+            </div>
+            <div class="p-4">
+              <div id="resultsChart" class="w-full" style="height: 250px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- MODALS -->
+
+    <!-- Loading Modal -->
+    <div
+      id="loadingModal"
+      class="fixed inset-0 bg-black/30 modal-overlay z-50 hidden flex items-center justify-center"
+    >
+      <div
+        class="modal-content bg-white rounded-2xl shadow-2xl p-8 flex flex-col items-center gap-4"
+      >
+        <div class="loading-spinner"></div>
+        <p class="text-sm font-medium text-slate-600" id="loadingText">
+          Running simulation...
+        </p>
+      </div>
+    </div>
+
+    <!-- Quantum Code Editor Modal -->
+    <div
+      id="quantumEditorModal"
+      class="fixed inset-0 bg-black/30 modal-overlay z-50 hidden flex items-center justify-center p-4"
+    >
+      <div
+        class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
+      >
+        <div
+          class="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-sky-50 to-indigo-50"
+        >
+          <h3 class="font-semibold text-slate-700">📝 Quantum Code Editor</h3>
+          <button
+            onclick="closeQuantumEditor()"
+            class="text-slate-400 hover:text-slate-600 text-xl leading-none"
+          >
+            &times;
+          </button>
+        </div>
+        <div
+          id="quantumEditorContainer"
+          class="flex-1"
+          style="min-height: 400px"
+        >
+        </div>
+        <div class="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+          <button
+            onclick="closeQuantumEditor()"
+            class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition"
+          >
+            Cancel
+          </button>
+          <button
+            onclick="applyQuantumCode()"
+            class="px-4 py-2 text-sm bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition"
+          >
+            Apply
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Classical Code Editor Modal -->
+    <div
+      id="classicalEditorModal"
+      class="fixed inset-0 bg-black/30 modal-overlay z-50 hidden flex items-center justify-center p-4"
+    >
+      <div
+        class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden"
+      >
+        <div
+          class="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50"
+        >
+          <h3 class="font-semibold text-slate-700">📝 Classical Code Editor</h3>
+          <button
+            onclick="closeClassicalEditor()"
+            class="text-slate-400 hover:text-slate-600 text-xl leading-none"
+          >
+            &times;
+          </button>
+        </div>
+        <div
+          id="classicalEditorContainer"
+          class="flex-1"
+          style="min-height: 400px"
+        >
+        </div>
+        <div class="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+          <button
+            onclick="closeClassicalEditor()"
+            class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition"
+          >
+            Cancel
+          </button>
+          <button
+            onclick="applyClassicalCode()"
+            class="px-4 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition"
+          >
+            Apply
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gate Edit Modal -->
+    <div
+      id="gateEditModal"
+      class="fixed inset-0 bg-black/30 modal-overlay z-50 hidden flex items-center justify-center p-4"
+    >
+      <div
+        class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden"
+      >
+        <div
+          class="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-violet-50 to-fuchsia-50"
+        >
+          <h3 class="font-semibold text-slate-700" id="gateEditTitle">
+            ✏️ Edit Gate
+          </h3>
+          <button
+            onclick="closeGateEdit()"
+            class="text-slate-400 hover:text-slate-600 text-xl leading-none"
+          >
+            &times;
+          </button>
+        </div>
+        <div id="gateEditBody" class="p-5 space-y-3"></div>
+        <div class="px-5 py-3 border-t border-slate-200 flex justify-between">
+          <button
+            onclick="deleteGateFromEdit()"
+            class="px-4 py-2 text-sm text-red-500 hover:bg-red-50 rounded-lg transition"
+          >
+            🗑️ Remove
+          </button>
+          <div class="flex gap-2">
+            <button
+              onclick="closeGateEdit()"
+              class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition"
+            >
+              Cancel
+            </button>
+            <button
+              onclick="applyGateEdit()"
+              class="px-4 py-2 text-sm bg-violet-500 text-white rounded-lg hover:bg-violet-600 transition"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Shots Input Modal -->
+    <div
+      id="shotsModal"
+      class="fixed inset-0 bg-black/30 modal-overlay z-50 hidden flex items-center justify-center p-4"
+    >
+      <div
+        class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden"
+      >
+        <div
+          class="px-5 py-3 border-b border-slate-200 bg-gradient-to-r from-emerald-50 to-teal-50"
+        >
+          <h3 class="font-semibold text-slate-700">▶️ Run Simulation</h3>
+        </div>
+        <div class="p-5 space-y-3">
+          <label class="block text-sm text-slate-600"
+          >Number of shots (1–1024):</label>
+          <input
+            id="shotsInput"
+            type="number"
+            min="1"
+            max="1024"
+            value="100"
+            class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 outline-none text-sm"
+          >
+        </div>
+        <div class="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
+          <button
+            onclick="closeShotsModal()"
+            class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg transition"
+          >
+            Cancel
+          </button>
+          <button
+            onclick="startSimulation()"
+            class="px-4 py-2 text-sm bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition"
+          >
+            ▶️ Run
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bloch Sphere Modal -->
+    <div
+      id="blochModal"
+      class="fixed inset-0 bg-black/30 modal-overlay z-50 hidden flex items-center justify-center p-4"
+    >
+      <div
+        class="modal-content bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col overflow-hidden"
+      >
+        <div
+          class="px-5 py-3 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-purple-50 to-pink-50"
+        >
+          <h3 class="font-semibold text-slate-700" id="blochTitle">
+            🌐 Bloch Sphere — q[0]
+          </h3>
+          <button
+            onclick="closeBlochModal()"
+            class="text-slate-400 hover:text-slate-600 text-xl leading-none"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="p-4 flex flex-col items-center">
+          <canvas
+            id="blochCanvas"
+            class="bloch-canvas rounded-xl border border-slate-200"
+            width="400"
+            height="400"
+          ></canvas>
+          <div
+            id="blochInfo"
+            class="mt-3 text-xs font-mono text-slate-600 text-center space-y-1"
+          >
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCRIPTS -->
+    <script>
+      // ============================================================
+      // STATE
+      // ============================================================
+      let NUM_QUBITS = 3;
+      let NUM_CBITS = 3;
+      let circuitInstructions = []; // array of {step, gate, targets, params, ctrl, condition, paramRefs}
+      let nextStep = 0;
+      let quantumCodeStr = "";
+      let classicalCodeStr = "";
+      let quantumEditorInstance = null;
+      let classicalEditorInstance = null;
+      let monacoLoaded = false;
+      let editingGateIdx = -1;
+      let jsqModule = null; // will hold the imported library
+
+      // Default code templates
+      function defaultQuantumCode() {
+        return `const code = quantum(${NUM_QUBITS}, ${NUM_CBITS}, (qc) => {\n  // quantum code\n});\n`;
+      }
+      function defaultClassicalCode() {
+        return `(qr) => { //qr is SimulationResult\n  return {} //return SimulationParams\n}`;
+      }
+
+      quantumCodeStr = defaultQuantumCode();
+      classicalCodeStr = defaultClassicalCode();
+
+      // ============================================================
+      // GATE DEFINITIONS
+      // ============================================================
+      const GATES = {
+        // Classical
+        x: {
+          label: "NOT",
+          cat: "classical",
+          qubits: 1,
+          params: [],
+          desc: "Bit-flip X gate",
+        },
+        cx: {
+          label: "CNOT",
+          cat: "classical",
+          qubits: 2,
+          params: [],
+          desc: "Controlled-NOT",
+        },
+        ccx: {
+          label: "Toffoli",
+          cat: "classical",
+          qubits: 3,
+          params: [],
+          desc: "Double-controlled NOT",
+        },
+        swap: {
+          label: "SWAP",
+          cat: "classical",
+          qubits: 2,
+          params: [],
+          desc: "Swap two qubits",
+        },
+        id: {
+          label: "ID",
+          cat: "classical",
+          qubits: 1,
+          params: [],
+          desc: "Identity (no-op)",
+        },
+        // Hadamard
+        h: {
+          label: "H",
+          cat: "hadamard",
+          qubits: 1,
+          params: [],
+          desc: "Hadamard gate",
+        },
+        // Phase
+        s: {
+          label: "S",
+          cat: "phase",
+          qubits: 1,
+          params: [],
+          desc: "Phase π/2",
+        },
+        sdg: {
+          label: "S†",
+          cat: "phase",
+          qubits: 1,
+          params: [],
+          desc: "Phase -π/2",
+        },
+        t: {
+          label: "T",
+          cat: "phase",
+          qubits: 1,
+          params: [],
+          desc: "Phase π/4",
+        },
+        tdg: {
+          label: "T†",
+          cat: "phase",
+          qubits: 1,
+          params: [],
+          desc: "Phase -π/4",
+        },
+        z: {
+          label: "Z",
+          cat: "phase",
+          qubits: 1,
+          params: [],
+          desc: "Phase π (Z)",
+        },
+        p: {
+          label: "P(λ)",
+          cat: "phase",
+          qubits: 1,
+          params: ["lambda"],
+          desc: "Arbitrary phase",
+        },
+        // Rotation
+        rx: {
+          label: "RX(θ)",
+          cat: "rotation",
+          qubits: 1,
+          params: ["theta"],
+          desc: "Rotation around X",
+        },
+        rz: {
+          label: "RZ(λ)",
+          cat: "rotation",
+          qubits: 1,
+          params: ["lambda"],
+          desc: "Rotation around Z",
+        },
+        rxx: {
+          label: "RXX(θ)",
+          cat: "rotation",
+          qubits: 2,
+          params: ["theta"],
+          desc: "XX interaction",
+        },
+        rzz: {
+          label: "RZZ(θ)",
+          cat: "rotation",
+          qubits: 2,
+          params: ["theta"],
+          desc: "ZZ interaction",
+        },
+        // Quantum
+        y: {
+          label: "Y",
+          cat: "quantum",
+          qubits: 1,
+          params: [],
+          desc: "Pauli-Y",
+        },
+        sx: {
+          label: "SX",
+          cat: "quantum",
+          qubits: 1,
+          params: [],
+          desc: "√X gate",
+        },
+        sxdg: {
+          label: "SX†",
+          cat: "quantum",
+          qubits: 1,
+          params: [],
+          desc: "Inverse √X",
+        },
+        u: {
+          label: "U(θ,φ,λ)",
+          cat: "quantum",
+          qubits: 1,
+          params: ["theta", "phi", "lambda"],
+          desc: "Universal gate",
+        },
+        rccx: {
+          label: "RCCX",
+          cat: "quantum",
+          qubits: 3,
+          params: [],
+          desc: "Relative-phase Toffoli",
+        },
+        rc3x: {
+          label: "RC3X",
+          cat: "quantum",
+          qubits: 4,
+          params: [],
+          desc: "Relative-phase 3-ctrl X",
+        },
+        // Non-unitary
+        measure: {
+          label: "M",
+          cat: "nonunitary",
+          qubits: 1,
+          params: ["cbit"],
+          desc: "Measure qubit",
+        },
+        reset: {
+          label: "Reset",
+          cat: "nonunitary",
+          qubits: 1,
+          params: [],
+          desc: "Reset to |0⟩",
+        },
+      };
+
+      const CAT_MAP = {
+        classical: "classical-gates",
+        hadamard: "hadamard-gates",
+        phase: "phase-gates",
+        rotation: "rotation-gates",
+        quantum: "quantum-gates",
+        nonunitary: "nonunitary-gates",
+      };
+
+      // ============================================================
+      // INIT
+      // ============================================================
+      async function init() {
+        try {
+          jsqModule = await import(
+            "https://esm.sh/jsr/@hviana/js-quantum"
+          );
+        } catch (e) {
+          console.error("Failed to load jsQuantum:", e);
+          alert(
+            "Failed to load the jsQuantum library. Please check your internet connection.",
+          );
+        }
+        buildOpsPanel();
+        renderCircuit();
+        loadMonaco();
+      }
+
+      function buildOpsPanel() {
+        for (const [key, g] of Object.entries(GATES)) {
+          const container = document.getElementById(CAT_MAP[g.cat]);
+          if (!container) continue;
+          const chip = document.createElement("div");
+          chip.className =
+            "gate-chip px-2.5 py-1 text-[11px] font-semibold rounded-lg border cursor-grab select-none " +
+            chipColor(g.cat);
+          chip.textContent = g.label;
+          chip.draggable = true;
+          chip.dataset.gate = key;
+          chip.addEventListener("dragstart", onDragStart);
+          container.appendChild(chip);
+        }
+      }
+
+      function chipColor(cat) {
+        const m = {
+          classical: "bg-blue-50 border-blue-200 text-blue-700",
+          hadamard: "bg-cyan-50 border-cyan-200 text-cyan-700",
+          phase: "bg-violet-50 border-violet-200 text-violet-700",
+          rotation: "bg-orange-50 border-orange-200 text-orange-700",
+          quantum: "bg-pink-50 border-pink-200 text-pink-700",
+          nonunitary:
+            "bg-emerald-50 border-emerald-200 text-emerald-700",
+        };
+        return m[cat] || "bg-slate-50 border-slate-200 text-slate-700";
+      }
+
+      // ============================================================
+      // DRAG & DROP
+      // ============================================================
+      let dragGate = null;
+
+      function onDragStart(e) {
+        dragGate = e.target.dataset.gate;
+        e.dataTransfer.effectAllowed = "copy";
+        e.dataTransfer.setData("text/plain", dragGate);
+      }
+
+      // ============================================================
+      // CIRCUIT RENDERING (SVG)
+      // ============================================================
+      const WIRE_Y_START = 40;
+      const WIRE_SPACING = 50;
+      const LABEL_WIDTH = 50;
+      const STEP_WIDTH = 70;
+      const GATE_W = 44;
+      const GATE_H = 30;
+      const CONTROL_R = 6;
+
+      function getWireY(qubitIdx) {
+        return WIRE_Y_START + qubitIdx * WIRE_SPACING;
+      }
+      function getClassicalY() {
+        return WIRE_Y_START + NUM_QUBITS * WIRE_SPACING;
+      }
+      function getStepX(step) {
+        return LABEL_WIDTH + step * STEP_WIDTH + STEP_WIDTH / 2;
+      }
+
+      function computeUsedSteps() {
+        let maxStep = 0;
+        circuitInstructions.forEach((inst) => {
+          if (inst.step > maxStep) maxStep = inst.step;
+        });
+        return maxStep;
+      }
+
+      function renderCircuit() {
+        const svg = document.getElementById("circuitSvg");
+        const usedSteps = computeUsedSteps();
+        const totalSteps = Math.max(usedSteps + 2, 6);
+        const svgW = LABEL_WIDTH + totalSteps * STEP_WIDTH + 40;
+        const svgH = getClassicalY() + 40;
+        svg.setAttribute("width", svgW);
+        svg.setAttribute("height", svgH);
+
+        let html = "";
+
+        // Step separators
+        for (let s = 0; s < totalSteps; s++) {
+          const x = LABEL_WIDTH + s * STEP_WIDTH;
+          html += `<line x1="${x}" y1="15" x2="${x}" y2="${
+            svgH - 10
+          }" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="2,4"/>`;
+        }
+
+        // Qubit labels + wires
+        for (let q = 0; q < NUM_QUBITS; q++) {
+          const y = getWireY(q);
+          html += `<text x="8" y="${
+            y + 4
+          }" fill="#475569" font-size="12" font-family="IBM Plex Mono" font-weight="500" class="cursor-pointer" onclick="openBlochSphere(${q})">q[${q}]</text>`;
+          html += `<line x1="${LABEL_WIDTH}" y1="${y}" x2="${
+            svgW - 10
+          }" y2="${y}" stroke="${"var(--wire-color)"}" stroke-width="1.5"/>`;
+        }
+
+        // Classical line
+        const cY = getClassicalY();
+        html += `<text x="8" y="${
+          cY + 4
+        }" fill="#92400e" font-size="12" font-family="IBM Plex Mono" font-weight="500">c</text>`;
+        html += `<line x1="${LABEL_WIDTH}" y1="${cY}" x2="${
+          svgW - 10
+        }" y2="${cY}" stroke="#d97706" stroke-width="2" stroke-dasharray="6,3"/>`;
+
+        // Drop zones (invisible rects per step/qubit)
+        for (let s = 0; s < totalSteps; s++) {
+          for (let q = 0; q < NUM_QUBITS; q++) {
+            const x = LABEL_WIDTH + s * STEP_WIDTH;
+            const y = getWireY(q) - WIRE_SPACING / 2;
+            html +=
+              `<rect x="${x}" y="${y}" width="${STEP_WIDTH}" height="${WIRE_SPACING}" fill="transparent" class="cursor-pointer"
+        data-step="${s}" data-qubit="${q}"
+        ondragover="event.preventDefault();this.setAttribute('fill','rgba(59,130,246,0.06)')"
+        ondragleave="this.setAttribute('fill','transparent')"
+        ondrop="handleDrop(event,${s},${q});this.setAttribute('fill','transparent')"
+        onclick="handleCellClick(${s},${q})" />`;
+          }
+        }
+
+        // Draw instructions
+        circuitInstructions.forEach((inst, idx) => {
+          html += renderInstruction(inst, idx);
+        });
+
+        svg.innerHTML = html;
+      }
+
+      function renderInstruction(inst, idx) {
+        const gDef = GATES[inst.gate];
+        if (!gDef) return "";
+        let html = "";
+        const x = getStepX(inst.step);
+
+        if (inst.gate === "measure") {
+          const q = inst.targets[0];
+          const y = getWireY(q);
+          const cY = getClassicalY();
+          // Gate box
+          html += gateBox(
+            x,
+            y,
+            "M",
+            idx,
+            'fill="#f5f3ff" stroke="#7c3aed"',
+            "#7c3aed",
+          );
+          // Line down to classical
+          html += `<line x1="${x}" y1="${
+            y + GATE_H / 2
+          }" x2="${x}" y2="${cY}" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+          html += `<text x="${x}" y="${
+            cY + 2
+          }" text-anchor="middle" fill="#7c3aed" font-size="14">╧</text>`;
+        } else if (inst.gate === "cx") {
+          const ctrl = inst.targets[0], tgt = inst.targets[1];
+          const cy = getWireY(ctrl), ty = getWireY(tgt);
+          html +=
+            `<line x1="${x}" y1="${cy}" x2="${x}" y2="${ty}" stroke="var(--control-dot)" stroke-width="2"/>`;
+          html +=
+            `<circle cx="${x}" cy="${cy}" r="${CONTROL_R}" fill="var(--control-dot)"/>`;
+          html += gateBox(x, ty, "NOT", idx);
+        } else if (inst.gate === "ccx" || inst.gate === "rccx") {
+          const c1 = inst.targets[0],
+            c2 = inst.targets[1],
+            tgt = inst.targets[2];
+          const y1 = getWireY(c1),
+            y2 = getWireY(c2),
+            yt = getWireY(tgt);
+          const minY = Math.min(y1, y2, yt),
+            maxY = Math.max(y1, y2, yt);
+          html +=
+            `<line x1="${x}" y1="${minY}" x2="${x}" y2="${maxY}" stroke="var(--control-dot)" stroke-width="2"/>`;
+          html +=
+            `<circle cx="${x}" cy="${y1}" r="${CONTROL_R}" fill="var(--control-dot)"/>`;
+          html +=
+            `<circle cx="${x}" cy="${y2}" r="${CONTROL_R}" fill="var(--control-dot)"/>`;
+          html += gateBox(
+            x,
+            yt,
+            inst.gate === "ccx" ? "NOT" : "RCCX",
+            idx,
+          );
+        } else if (inst.gate === "rc3x") {
+          const qs = inst.targets;
+          const ys = qs.map((q) => getWireY(q));
+          const minY = Math.min(...ys), maxY = Math.max(...ys);
+          html +=
+            `<line x1="${x}" y1="${minY}" x2="${x}" y2="${maxY}" stroke="var(--control-dot)" stroke-width="2"/>`;
+          for (let i = 0; i < 3; i++) {
+            html += `<circle cx="${x}" cy="${
+              ys[i]
+            }" r="${CONTROL_R}" fill="var(--control-dot)"/>`;
+          }
+          html += gateBox(x, ys[3], "RC3X", idx);
+        } else if (inst.gate === "swap") {
+          const q1 = inst.targets[0], q2 = inst.targets[1];
+          const y1 = getWireY(q1), y2 = getWireY(q2);
+          html +=
+            `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="var(--control-dot)" stroke-width="2"/>`;
+          html += swapSymbol(x, y1);
+          html += swapSymbol(x, y2);
+          html += `<rect x="${x - GATE_W / 2}" y="${
+            Math.min(y1, y2) - GATE_H / 2
+          }" width="${GATE_W}" height="${
+            Math.abs(y2 - y1) + GATE_H
+          }" fill="transparent" class="cursor-pointer" onclick="editGate(${idx})" />`;
+        } else if (["rxx", "rzz"].includes(inst.gate)) {
+          const q1 = inst.targets[0], q2 = inst.targets[1];
+          const y1 = getWireY(q1), y2 = getWireY(q2);
+          html +=
+            `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="var(--control-dot)" stroke-width="2"/>`;
+          html += gateBox(x, y1, gDef.label, idx, "", "", true);
+          html += gateBox(x, y2, gDef.label, idx, "", "", true);
+        } else {
+          // Single qubit gates
+          const q = inst.targets[0];
+          const y = getWireY(q);
+          let label = gDef.label;
+          // Controlled via opts
+          if (inst.ctrl !== undefined && inst.ctrl !== null) {
+            const ctrlY = getWireY(inst.ctrl);
+            const minY = Math.min(y, ctrlY), maxY = Math.max(y, ctrlY);
+            html +=
+              `<line x1="${x}" y1="${minY}" x2="${x}" y2="${maxY}" stroke="var(--control-dot)" stroke-width="2"/>`;
+            html +=
+              `<circle cx="${x}" cy="${ctrlY}" r="${CONTROL_R}" fill="var(--control-dot)"/>`;
+          }
+          // Classical condition annotation
+          if (inst.condition !== undefined && inst.condition !== null) {
+            label += ` | if(c==${inst.condition})`;
+          }
+          html += gateBox(x, y, label, idx);
+        }
+        return html;
+      }
+
+      function gateBox(
+        cx,
+        cy,
+        label,
+        idx,
+        rectAttrs = "",
+        textColor = "",
+        small = false,
+      ) {
+        const w = Math.max(GATE_W, label.length * 7 + 12);
+        const h = GATE_H;
+        const ra = rectAttrs ||
+          'fill="var(--gate-bg)" stroke="var(--gate-border)"';
+        const tc = textColor || "var(--gate-text)";
+        const fs = label.length > 8 ? 8 : (label.length > 5 ? 9 : 10);
+        return `<g class="cursor-pointer" onclick="editGate(${idx})">
+    <rect x="${cx - w / 2}" y="${
+          cy - h / 2
+        }" width="${w}" height="${h}" rx="6" ry="6" ${ra} stroke-width="1.5"/>
+    <text x="${cx}" y="${
+          cy + 4
+        }" text-anchor="middle" fill="${tc}" font-size="${fs}" font-family="IBM Plex Mono" font-weight="600">${
+          escHtml(label)
+        }</text>
+  </g>`;
+      }
+
+      function swapSymbol(cx, cy) {
+        const s = 7;
+        return `<line x1="${cx - s}" y1="${cy - s}" x2="${
+          cx + s
+        }" y2="${
+          cy + s
+        }" stroke="var(--control-dot)" stroke-width="2.5"/>
+    <line x1="${cx + s}" y1="${cy - s}" x2="${cx - s}" y2="${
+          cy + s
+        }" stroke="var(--control-dot)" stroke-width="2.5"/>`;
+      }
+
+      function escHtml(s) {
+        return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(
+          />/g,
+          "&gt;",
+        ).replace(/"/g, "&quot;");
+      }
+
+      // ============================================================
+      // DROP HANDLING
+      // ============================================================
+      function handleDrop(e, step, qubit) {
+        e.preventDefault();
+        const gateKey = e.dataTransfer.getData("text/plain") ||
+          dragGate;
+        if (!gateKey || !GATES[gateKey]) return;
+        addGateToCircuit(gateKey, step, qubit);
+        dragGate = null;
+      }
+
+      function handleCellClick(step, qubit) {
+        // Check if there's already a gate here
+        const existing = circuitInstructions.findIndex((inst) =>
+          inst.step === step && inst.targets.includes(qubit)
+        );
+        if (existing >= 0) {
+          editGate(existing);
+        }
+      }
+
+      function addGateToCircuit(gateKey, step, qubit) {
+        const gDef = GATES[gateKey];
+        const inst = {
+          step: step,
+          gate: gateKey,
+          targets: [qubit],
+          params: [],
+          paramRefs: [],
+        };
+
+        if (gDef.qubits === 2) {
+          if (["cx"].includes(gateKey)) {
+            inst.targets = [qubit, Math.min(qubit + 1, NUM_QUBITS - 1)];
+            if (inst.targets[0] === inst.targets[1] && NUM_QUBITS > 1) {
+              inst.targets[1] = inst.targets[0] === 0 ? 1 : 0;
+            }
+          } else if (["swap", "rxx", "rzz"].includes(gateKey)) {
+            inst.targets = [qubit, Math.min(qubit + 1, NUM_QUBITS - 1)];
+            if (inst.targets[0] === inst.targets[1] && NUM_QUBITS > 1) {
+              inst.targets[1] = inst.targets[0] === 0 ? 1 : 0;
+            }
+          }
+        } else if (gDef.qubits === 3) {
+          const q0 = qubit,
+            q1 = (qubit + 1) % NUM_QUBITS,
+            q2 = (qubit + 2) % NUM_QUBITS;
+          inst.targets = [q0, q1, q2];
+        } else if (gDef.qubits === 4) {
+          inst.targets = [
+            qubit % NUM_QUBITS,
+            (qubit + 1) % NUM_QUBITS,
+            (qubit + 2) % NUM_QUBITS,
+            (qubit + 3) % NUM_QUBITS,
+          ];
+        }
+
+        if (gateKey === "measure") {
+          inst.params = [qubit < NUM_CBITS ? qubit : 0];
+        }
+
+        // Default param values
+        gDef.params.forEach((p) => {
+          if (p === "cbit") return;
+          inst.params.push(0);
+        });
+
+        circuitInstructions.push(inst);
+        if (step >= nextStep) nextStep = step + 1;
+        syncCodeFromCircuit();
+        renderCircuit();
+      }
+
+      // ============================================================
+      // GATE EDITING
+      // ============================================================
+      function editGate(idx) {
+        if (idx < 0 || idx >= circuitInstructions.length) return;
+        editingGateIdx = idx;
+        const inst = circuitInstructions[idx];
+        const gDef = GATES[inst.gate];
+
+        document.getElementById("gateEditTitle").textContent =
+          `✏️ Edit: ${gDef.label}`;
+        const body = document.getElementById("gateEditBody");
+        let html = "";
+
+        // Targets
+        html +=
+          `<div><label class="block text-xs font-semibold text-slate-500 mb-1">Target qubit(s):</label>`;
+        inst.targets.forEach((t, i) => {
+          html +=
+            `<div class="flex items-center gap-2 mb-1"><span class="text-xs text-slate-400 w-16">q[${i}]:</span>
+      <input type="number" min="0" max="${
+              NUM_QUBITS - 1
+            }" value="${t}" class="gate-target-input w-16 px-2 py-1 text-xs border border-slate-300 rounded" data-idx="${i}"></div>`;
+        });
+        html += `</div>`;
+
+        // Params
+        if (gDef.params.length > 0) {
+          html +=
+            `<div><label class="block text-xs font-semibold text-slate-500 mb-1">Parameters:</label>`;
+          gDef.params.forEach((pName, i) => {
+            const val = inst.gate === "measure"
+              ? (inst.params[0] ?? 0)
+              : (inst.params[i] ?? 0);
+            if (pName === "cbit") {
+              html +=
+                `<div class="flex items-center gap-2 mb-1"><span class="text-xs text-slate-400 w-24">Classical bit:</span>
+          <input type="number" min="0" max="${
+                  NUM_CBITS - 1
+                }" value="${val}" class="gate-param-input w-20 px-2 py-1 text-xs border border-slate-300 rounded" data-idx="${i}"></div>`;
+            } else {
+              html +=
+                `<div class="flex items-center gap-2 mb-1"><span class="text-xs text-slate-400 w-24">${pName}:</span>
+          <input type="text" value="${val}" class="gate-param-input w-24 px-2 py-1 text-xs border border-slate-300 rounded" data-idx="${i}" placeholder="e.g. 3.14"></div>`;
+            }
+          });
+          html += `</div>`;
+        }
+
+        // Ctrl
+        if (
+          gDef.qubits === 1 && !["measure", "reset"].includes(inst.gate)
+        ) {
+          html += `<div class="flex items-center gap-2">
+      <span class="text-xs text-slate-500 font-semibold w-24">Control qubit:</span>
+      <input type="text" value="${
+            inst.ctrl ?? ""
+          }" class="w-16 px-2 py-1 text-xs border border-slate-300 rounded" id="gateCtrlInput" placeholder="none">
+    </div>`;
+        }
+
+        // Condition
+        html += `<div class="flex items-center gap-2">
+    <span class="text-xs text-slate-500 font-semibold w-24">Condition (cif):</span>
+    <input type="text" value="${
+          inst.condition ?? ""
+        }" class="w-20 px-2 py-1 text-xs border border-slate-300 rounded" id="gateCifInput" placeholder="none">
+  </div>`;
+
+        body.innerHTML = html;
+        document.getElementById("gateEditModal").classList.remove(
+          "hidden",
+        );
+      }
+
+      function applyGateEdit() {
+        if (editingGateIdx < 0) return;
+        const inst = circuitInstructions[editingGateIdx];
+
+        // Targets
+        document.querySelectorAll(".gate-target-input").forEach(
+          (el) => {
+            const i = parseInt(el.dataset.idx);
+            inst.targets[i] = Math.max(
+              0,
+              Math.min(NUM_QUBITS - 1, parseInt(el.value) || 0),
+            );
+          },
+        );
+
+        // Params
+        const pInputs = document.querySelectorAll(".gate-param-input");
+        pInputs.forEach((el) => {
+          const i = parseInt(el.dataset.idx);
+          const v = parseFloat(el.value);
+          inst.params[i] = isNaN(v) ? 0 : v;
+        });
+
+        // Ctrl
+        const ctrlEl = document.getElementById("gateCtrlInput");
+        if (ctrlEl) {
+          const cv = parseInt(ctrlEl.value);
+          inst.ctrl = isNaN(cv) ? undefined : cv;
+        }
+
+        // Condition
+        const cifEl = document.getElementById("gateCifInput");
+        if (cifEl) {
+          const cv = parseInt(cifEl.value);
+          inst.condition = isNaN(cv) ? undefined : cv;
+        }
+
+        closeGateEdit();
+        syncCodeFromCircuit();
+        renderCircuit();
+      }
+
+      function deleteGateFromEdit() {
+        if (editingGateIdx >= 0) {
+          circuitInstructions.splice(editingGateIdx, 1);
+        }
+        closeGateEdit();
+        syncCodeFromCircuit();
+        renderCircuit();
+      }
+
+      function closeGateEdit() {
+        editingGateIdx = -1;
+        document.getElementById("gateEditModal").classList.add(
+          "hidden",
+        );
+      }
+
+      function clearCircuit() {
+        circuitInstructions = [];
+        nextStep = 0;
+        quantumCodeStr = defaultQuantumCode();
+        renderCircuit();
+      }
+
+      // ============================================================
+      // SYNC CIRCUIT <-> CODE (via JSON serialization)
+      // ============================================================
+      function syncCodeFromCircuit() {
+        // Build quantum code string from circuit instructions
+        let lines = [];
+        const sortedInst = [...circuitInstructions].sort((a, b) =>
+          a.step - b.step
+        );
+
+        for (const inst of sortedInst) {
+          const g = inst.gate;
+          const gDef = GATES[g];
+          if (!gDef) continue;
+
+          let opts = {};
+          if (inst.ctrl !== undefined && inst.ctrl !== null) {
+            opts.ctrl = inst.ctrl;
+          }
+          if (inst.condition !== undefined && inst.condition !== null) {
+            opts.cif = inst.condition;
+          }
+          const hasOpts = Object.keys(opts).length > 0;
+          const optsStr = hasOpts ? `, ${JSON.stringify(opts)}` : "";
+
+          if (g === "measure") {
+            lines.push(
+              `  qc.measure(${inst.targets[0]}, ${
+                inst.params[0] ?? 0
+              }${optsStr});`,
+            );
+          } else if (g === "reset") {
+            lines.push(`  qc.reset(${inst.targets[0]}${optsStr});`);
+          } else if (g === "cx") {
+            lines.push(
+              `  qc.cx(${inst.targets[0]}, ${
+                inst.targets[1]
+              }${optsStr});`,
+            );
+          } else if (g === "ccx") {
+            lines.push(
+              `  qc.ccx(${inst.targets[0]}, ${inst.targets[1]}, ${
+                inst.targets[2]
+              }${optsStr});`,
+            );
+          } else if (g === "rccx") {
+            lines.push(
+              `  qc.rccx(${inst.targets[0]}, ${inst.targets[1]}, ${
+                inst.targets[2]
+              }${optsStr});`,
+            );
+          } else if (g === "rc3x") {
+            lines.push(
+              `  qc.rc3x(${inst.targets[0]}, ${inst.targets[1]}, ${
+                inst.targets[2]
+              }, ${inst.targets[3]}${optsStr});`,
+            );
+          } else if (g === "swap") {
+            lines.push(
+              `  qc.swap(${inst.targets[0]}, ${
+                inst.targets[1]
+              }${optsStr});`,
+            );
+          } else if (g === "rxx") {
+            const theta = inst.params[0] ?? 0;
+            lines.push(
+              `  qc.rxx(${theta}, ${inst.targets[0]}, ${
+                inst.targets[1]
+              }${optsStr});`,
+            );
+          } else if (g === "rzz") {
+            const theta = inst.params[0] ?? 0;
+            lines.push(
+              `  qc.rzz(${theta}, ${inst.targets[0]}, ${
+                inst.targets[1]
+              }${optsStr});`,
+            );
+          } else if (g === "p") {
+            lines.push(
+              `  qc.p(${inst.params[0] ?? 0}, ${
+                inst.targets[0]
+              }${optsStr});`,
+            );
+          } else if (g === "rx") {
+            lines.push(
+              `  qc.rx(${inst.params[0] ?? 0}, ${
+                inst.targets[0]
+              }${optsStr});`,
+            );
+          } else if (g === "rz") {
+            lines.push(
+              `  qc.rz(${inst.params[0] ?? 0}, ${
+                inst.targets[0]
+              }${optsStr});`,
+            );
+          } else if (g === "u") {
+            lines.push(
+              `  qc.u(${inst.params[0] ?? 0}, ${inst.params[1] ?? 0}, ${
+                inst.params[2] ?? 0
+              }, ${inst.targets[0]}${optsStr});`,
+            );
+          } else {
+            // Single qubit gate: h, x, y, z, s, sdg, t, tdg, sx, sxdg, id
+            lines.push(`  qc.${g}(${inst.targets[0]}${optsStr});`);
+          }
+        }
+
+        quantumCodeStr =
+          `const code = quantum(${NUM_QUBITS}, ${NUM_CBITS}, (qc) => {\n${
+            lines.join("\n")
+          }\n});\n`;
+
+        // Update editor if open
+        if (quantumEditorInstance) {
+          quantumEditorInstance.setValue(quantumCodeStr);
+        }
+      }
+
+      function syncCircuitFromCode(codeStr) {
+        // We build a QuantumCode from the code string, serialize it, then rebuild instructions
+        if (!jsqModule) return;
+        try {
+          const { quantum, toJSON, serialize } = jsqModule;
+          // Use Function constructor to evaluate the code in a scope with quantum available
+          const fn = new Function(
+            "quantum",
+            `${codeStr}\nreturn code;`,
+          );
+          const code = fn(quantum);
+          const serialized = serialize(code);
+
+          NUM_QUBITS = serialized.numQubits;
+          NUM_CBITS = serialized.numClassicalBits;
+          document.getElementById("numQubitsInput").value = NUM_QUBITS;
+          document.getElementById("numCbitsInput").value = NUM_CBITS;
+
+          circuitInstructions = serialized.instructions.map((inst) => ({
+            step: inst.step,
+            gate: inst.gate,
+            targets: inst.targets,
+            params: inst.params || [],
+            paramRefs: inst.paramRefs || [],
+            ctrl: inst.ctrl,
+            condition: inst.condition?.value,
+          }));
+          nextStep = circuitInstructions.length > 0
+            ? Math.max(...circuitInstructions.map((i) => i.step)) + 1
+            : 0;
+          renderCircuit();
+        } catch (e) {
+          console.error("Failed to sync circuit from code:", e);
+          alert("Error parsing quantum code: " + e.message);
+        }
+      }
+
+      // ============================================================
+      // MONACO EDITOR
+      // ============================================================
+      function loadMonaco() {
+        if (monacoLoaded) return;
+        const script = document.createElement("script");
+        script.src =
+          "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js";
+        script.onload = () => {
+          require.config({
+            paths: {
+              vs:
+                "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs",
+            },
+          });
+          monacoLoaded = true;
+        };
+        document.head.appendChild(script);
+      }
+
+      function openQuantumEditor() {
+        document.getElementById("quantumEditorModal").classList.remove(
+          "hidden",
+        );
+        if (monacoLoaded && !quantumEditorInstance) {
+          require(["vs/editor/editor.main"], function () {
+            quantumEditorInstance = monaco.editor.create(
+              document.getElementById("quantumEditorContainer"),
+              {
+                value: quantumCodeStr,
+                language: "javascript",
+                theme: "vs",
+                fontSize: 13,
+                fontFamily: "IBM Plex Mono",
+                minimap: { enabled: false },
+                automaticLayout: true,
+                scrollBeyondLastLine: false,
+                lineNumbers: "on",
+                roundedSelection: true,
+                padding: { top: 12 },
+              },
+            );
+          });
+        } else if (quantumEditorInstance) {
+          quantumEditorInstance.setValue(quantumCodeStr);
+        }
+      }
+
+      function closeQuantumEditor() {
+        document.getElementById("quantumEditorModal").classList.add(
+          "hidden",
+        );
+      }
+
+      function applyQuantumCode() {
+        if (quantumEditorInstance) {
+          quantumCodeStr = quantumEditorInstance.getValue();
+        }
+        syncCircuitFromCode(quantumCodeStr);
+        closeQuantumEditor();
+      }
+
+      function openClassicalEditor() {
+        document.getElementById("classicalEditorModal").classList
+          .remove("hidden");
+        if (monacoLoaded && !classicalEditorInstance) {
+          require(["vs/editor/editor.main"], function () {
+            classicalEditorInstance = monaco.editor.create(
+              document.getElementById("classicalEditorContainer"),
+              {
+                value: classicalCodeStr,
+                language: "javascript",
+                theme: "vs",
+                fontSize: 13,
+                fontFamily: "IBM Plex Mono",
+                minimap: { enabled: false },
+                automaticLayout: true,
+                scrollBeyondLastLine: false,
+                lineNumbers: "on",
+                roundedSelection: true,
+                padding: { top: 12 },
+              },
+            );
+          });
+        } else if (classicalEditorInstance) {
+          classicalEditorInstance.setValue(classicalCodeStr);
+        }
+      }
+
+      function closeClassicalEditor() {
+        document.getElementById("classicalEditorModal").classList.add(
+          "hidden",
+        );
+      }
+
+      function applyClassicalCode() {
+        if (classicalEditorInstance) {
+          classicalCodeStr = classicalEditorInstance.getValue();
+        }
+        closeClassicalEditor();
+      }
+
+      // ============================================================
+      // SIMULATION
+      // ============================================================
+      function runSimulation() {
+        document.getElementById("shotsModal").classList.remove(
+          "hidden",
+        );
+      }
+
+      function closeShotsModal() {
+        document.getElementById("shotsModal").classList.add("hidden");
+      }
+
+      async function startSimulation() {
+        closeShotsModal();
+        const numShots = Math.max(
+          1,
+          Math.min(
+            1024,
+            parseInt(document.getElementById("shotsInput").value) ||
+              100,
+          ),
+        );
+
+        if (!jsqModule) {
+          alert("jsQuantum library not loaded yet.");
+          return;
+        }
+
+        showLoading("Running hybrid simulation...");
+
+        // Small delay to let the UI update
+        await new Promise((r) => setTimeout(r, 50));
+
+        try {
+          const { quantum, simulate, fromJSON, toJSON, serialize } =
+            jsqModule;
+
+          // Parse classical code
+          let classicalFn;
+          try {
+            classicalFn = new Function(
+              "qr",
+              `return (${classicalCodeStr})(qr);`,
+            );
+          } catch (e) {
+            classicalFn = (_) => ({});
+          }
+
+          // Accumulate results across all shots
+          const accumulated = {};
+          let qr = {}; // initial SimulationResult (empty map)
+
+          for (let shot = 0; shot < numShots; shot++) {
+            // 1. Execute classical code
+            let simParams = {};
+            try {
+              simParams = classicalFn(qr) || {};
+            } catch (e) {
+              console.warn("Classical code error at shot", shot, e);
+              simParams = {};
+            }
+
+            // 2. Execute quantum code with 1 shot
+            let quantumResult = {};
+            try {
+              const buildFn = new Function(
+                "quantum",
+                `${quantumCodeStr}\nreturn code;`,
+              );
+              const code = buildFn(quantum);
+              quantumResult = simulate(code, simParams, 1);
+            } catch (e) {
+              console.warn("Quantum code error at shot", shot, e);
+              quantumResult = {};
+            }
+
+            // Accumulate
+            for (const [key, val] of Object.entries(quantumResult)) {
+              accumulated[key] = (accumulated[key] || 0) + val;
+            }
+
+            // Pass quantum result as input to next classical iteration
+            qr = quantumResult;
+          }
+
+          // Normalize to percentages
+          const total = Object.values(accumulated).reduce(
+            (s, v) => s + v,
+            0,
+          );
+          const results = {};
+          for (const [key, val] of Object.entries(accumulated)) {
+            results[key] = total > 0 ? (val / total) * 100 : 0;
+          }
+
+          hideLoading();
+          showResults(results, numShots);
+        } catch (e) {
+          hideLoading();
+          alert("Simulation error: " + e.message);
+          console.error(e);
+        }
+      }
+
+      function showLoading(msg) {
+        document.getElementById("loadingText").textContent = msg ||
+          "Loading...";
+        document.getElementById("loadingModal").classList.remove(
+          "hidden",
+        );
+      }
+
+      function hideLoading() {
+        document.getElementById("loadingModal").classList.add("hidden");
+      }
+
+      // ============================================================
+      // RESULTS CHART
+      // ============================================================
+      function showResults(results, numShots) {
+        const panel = document.getElementById("resultsPanel");
+        panel.classList.remove("hidden");
+        const container = document.getElementById("resultsChart");
+
+        const entries = Object.entries(results).sort((a, b) =>
+          a[0].localeCompare(b[0])
+        );
+        if (entries.length === 0) {
+          container.innerHTML =
+            '<p class="text-sm text-slate-400 text-center py-8">No measurement results. Add Measure gates to your circuit.</p>';
+          return;
+        }
+
+        const maxVal = Math.max(...entries.map((e) => e[1]), 1);
+
+        let html =
+          `<div class="mb-2 text-xs text-slate-400">Shots: ${numShots} | States: ${entries.length}</div>`;
+        html +=
+          `<div class="flex items-end gap-1 sm:gap-2" style="height:200px;">`;
+
+        const colors = [
+          "#3b82f6",
+          "#06b6d4",
+          "#8b5cf6",
+          "#ec4899",
+          "#f59e0b",
+          "#10b981",
+          "#ef4444",
+          "#6366f1",
+        ];
+
+        entries.forEach(([key, val], i) => {
+          const pct = (val / maxVal) * 100;
+          const color = colors[i % colors.length];
+          html +=
+            `<div class="flex flex-col items-center flex-1 min-w-0" style="max-width:80px;">
+      <span class="text-[10px] font-semibold text-slate-600 mb-1">${
+              val.toFixed(1)
+            }%</span>
+      <div class="w-full rounded-t-md bar-chart-bar" style="height:${
+              Math.max(pct, 2)
+            }%;background:${color};min-height:4px;"></div>
+      <span class="text-[10px] font-mono text-slate-500 mt-1 truncate w-full text-center">|${key}⟩</span>
+    </div>`;
+        });
+
+        html += `</div>`;
+        container.innerHTML = html;
+        panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+
+      // ============================================================
+      // SAVE / LOAD
+      // ============================================================
+      function saveProject() {
+        if (quantumEditorInstance) {
+          quantumCodeStr = quantumEditorInstance.getValue();
+        }
+        if (classicalEditorInstance) {
+          classicalCodeStr = classicalEditorInstance.getValue();
+        }
+
+        const project = {
+          version: 1,
+          numQubits: NUM_QUBITS,
+          numCbits: NUM_CBITS,
+          quantumCode: quantumCodeStr,
+          classicalCode: classicalCodeStr,
+          circuit: circuitInstructions,
+        };
+
+        const blob = new Blob([JSON.stringify(project, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "quantum-project.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function loadProject() {
+        document.getElementById("fileInput").click();
+      }
+
+      function handleFileLoad(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          try {
+            const project = JSON.parse(ev.target.result);
+            NUM_QUBITS = project.numQubits || 3;
+            NUM_CBITS = project.numCbits || 3;
+            document.getElementById("numQubitsInput").value =
+              NUM_QUBITS;
+            document.getElementById("numCbitsInput").value = NUM_CBITS;
+            quantumCodeStr = project.quantumCode ||
+              defaultQuantumCode();
+            classicalCodeStr = project.classicalCode ||
+              defaultClassicalCode();
+            circuitInstructions = project.circuit || [];
+            nextStep = circuitInstructions.length > 0
+              ? Math.max(...circuitInstructions.map((i) => i.step)) + 1
+              : 0;
+
+            if (quantumEditorInstance) {
+              quantumEditorInstance.setValue(quantumCodeStr);
+            }
+            if (classicalEditorInstance) {
+              classicalEditorInstance.setValue(classicalCodeStr);
+            }
+            renderCircuit();
+          } catch (err) {
+            alert("Invalid project file: " + err.message);
+          }
+        };
+        reader.readAsText(file);
+        e.target.value = "";
+      }
+
+      function updateCircuitSize() {
+        NUM_QUBITS = Math.max(
+          1,
+          Math.min(
+            10,
+            parseInt(document.getElementById("numQubitsInput").value) ||
+              3,
+          ),
+        );
+        NUM_CBITS = Math.max(
+          0,
+          Math.min(
+            10,
+            parseInt(document.getElementById("numCbitsInput").value) ||
+              3,
+          ),
+        );
+        document.getElementById("numQubitsInput").value = NUM_QUBITS;
+        document.getElementById("numCbitsInput").value = NUM_CBITS;
+        // Remove instructions that reference out-of-range qubits
+        circuitInstructions = circuitInstructions.filter((inst) =>
+          inst.targets.every((t) => t < NUM_QUBITS)
+        );
+        syncCodeFromCircuit();
+        renderCircuit();
+      }
+
+      // ============================================================
+      // BLOCH SPHERE (Canvas 3D)
+      // ============================================================
+      let blochQubit = 0;
+      let blochRotX = -0.4;
+      let blochRotY = 0.6;
+      let blochDragging = false;
+      let blochLastX = 0, blochLastY = 0;
+
+      function openBlochSphere(qubitIdx) {
+        blochQubit = qubitIdx;
+        document.getElementById("blochTitle").textContent =
+          `🌐 Bloch Sphere — q[${qubitIdx}]`;
+        document.getElementById("blochModal").classList.remove(
+          "hidden",
+        );
+
+        const canvas = document.getElementById("blochCanvas");
+        canvas.onpointerdown = (e) => {
+          blochDragging = true;
+          blochLastX = e.clientX;
+          blochLastY = e.clientY;
+          canvas.setPointerCapture(e.pointerId);
+        };
+        canvas.onpointermove = (e) => {
+          if (!blochDragging) return;
+          blochRotY += (e.clientX - blochLastX) * 0.01;
+          blochRotX += (e.clientY - blochLastY) * 0.01;
+          blochRotX = Math.max(
+            -Math.PI / 2,
+            Math.min(Math.PI / 2, blochRotX),
+          );
+          blochLastX = e.clientX;
+          blochLastY = e.clientY;
+          drawBlochSphere();
+        };
+        canvas.onpointerup = () => {
+          blochDragging = false;
+        };
+
+        computeAndDrawBloch();
+      }
+
+      function closeBlochModal() {
+        document.getElementById("blochModal").classList.add("hidden");
+      }
+
+      function computeAndDrawBloch() {
+        if (!jsqModule) {
+          drawBlochSphere();
+          return;
+        }
+        try {
+          const { quantum, getStateVector, getQubitState } = jsqModule;
+          // Build the circuit from current code
+          const buildFn = new Function(
+            "quantum",
+            `${quantumCodeStr}\nreturn code;`,
+          );
+          const code = buildFn(quantum);
+          const sv = getStateVector(code);
+          const qState = getQubitState(sv, blochQubit, NUM_QUBITS);
+          drawBlochSphere(qState);
+        } catch (e) {
+          console.warn("Bloch sphere error:", e);
+          drawBlochSphere(null);
+        }
+      }
+
+      function drawBlochSphere(qState) {
+        const canvas = document.getElementById("blochCanvas");
+        const ctx = canvas.getContext("2d");
+        const W = canvas.width, H = canvas.height;
+        const cx = W / 2, cy = H / 2, R = Math.min(W, H) * 0.35;
+
+        ctx.clearRect(0, 0, W, H);
+
+        // Background
+        ctx.fillStyle = "#fafbff";
+        ctx.fillRect(0, 0, W, H);
+
+        const cosX = Math.cos(blochRotX), sinX = Math.sin(blochRotX);
+        const cosY = Math.cos(blochRotY), sinY = Math.sin(blochRotY);
+
+        function project(x, y, z) {
+          // Rotate around Y then X
+          const x1 = x * cosY + z * sinY;
+          const z1 = -x * sinY + z * cosY;
+          const y1 = y * cosX - z1 * sinX;
+          const z2 = y * sinX + z1 * cosX;
+          return { px: cx + x1 * R, py: cy - y1 * R, z: z2 };
+        }
+
+        // Draw sphere outline
+        ctx.beginPath();
+        ctx.arc(cx, cy, R, 0, Math.PI * 2);
+        ctx.strokeStyle = "#cbd5e1";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Draw great circles (equator, meridians)
+        function drawEllipse(transform, color, dash) {
+          ctx.beginPath();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 0.8;
+          ctx.setLineDash(dash || []);
+          for (let i = 0; i <= 72; i++) {
+            const angle = (i / 72) * Math.PI * 2;
+            const pt = transform(angle);
+            const p = project(pt.x, pt.y, pt.z);
+            if (i === 0) ctx.moveTo(p.px, p.py);
+            else ctx.lineTo(p.px, p.py);
+          }
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Equator (XY plane)
+        drawEllipse(
+          (a) => ({ x: Math.cos(a), y: 0, z: Math.sin(a) }),
+          "#94a3b8",
+          [3, 3],
+        );
+        // XZ meridian
+        drawEllipse(
+          (a) => ({ x: Math.cos(a), y: Math.sin(a), z: 0 }),
+          "#94a3b8",
+          [3, 3],
+        );
+        // YZ meridian
+        drawEllipse(
+          (a) => ({ x: 0, y: Math.cos(a), z: Math.sin(a) }),
+          "#94a3b8",
+          [3, 3],
+        );
+
+        // Axes
+        function drawAxis(x, y, z, label, color) {
+          const p0 = project(0, 0, 0);
+          const p1 = project(x * 1.15, y * 1.15, z * 1.15);
+          const pn = project(-x * 1.15, -y * 1.15, -z * 1.15);
+          ctx.beginPath();
+          ctx.moveTo(pn.px, pn.py);
+          ctx.lineTo(p1.px, p1.py);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          ctx.font = "bold 13px IBM Plex Sans";
+          ctx.fillStyle = color;
+          ctx.textAlign = "center";
+          ctx.fillText(label, p1.px, p1.py - 6);
+        }
+
+        drawAxis(1, 0, 0, "x", "#ef4444");
+        drawAxis(0, 1, 0, "z", "#3b82f6");
+        drawAxis(0, 0, 1, "y", "#10b981");
+
+        // Special state labels
+        const labels = [
+          { x: 0, y: 1, z: 0, text: "|0⟩", color: "#1e40af" },
+          { x: 0, y: -1, z: 0, text: "|1⟩", color: "#1e40af" },
+          { x: 1, y: 0, z: 0, text: "|+⟩", color: "#dc2626" },
+          { x: -1, y: 0, z: 0, text: "|−⟩", color: "#dc2626" },
+          { x: 0, y: 0, z: 1, text: "|+i⟩", color: "#059669" },
+          { x: 0, y: 0, z: -1, text: "|−i⟩", color: "#059669" },
+        ];
+
+        labels.forEach((l) => {
+          const p = project(l.x * 1.25, l.y * 1.25, l.z * 1.25);
+          ctx.font = "bold 11px IBM Plex Mono";
+          ctx.fillStyle = l.color;
+          ctx.textAlign = "center";
+          ctx.fillText(l.text, p.px, p.py + 4);
+          // Small dot at pole
+          const pd = project(l.x, l.y, l.z);
+          ctx.beginPath();
+          ctx.arc(pd.px, pd.py, 3, 0, Math.PI * 2);
+          ctx.fillStyle = l.color + "60";
+          ctx.fill();
+        });
+
+        // Bloch vector
+        let bx = 0, by = 0, bz = 1; // default |0⟩
+        let theta = 0, phi = 0;
+
+        if (qState) {
+          bx = qState.bloch.x;
+          by = qState.bloch.y;
+          bz = qState.bloch.z;
+          theta = qState.spherical.theta;
+          phi = qState.spherical.phi;
+        }
+
+        const pOrigin = project(0, 0, 0);
+        // Note: Bloch sphere convention: z is up (|0⟩), x is right, y is into screen
+        // Library returns bloch {x,y,z} in standard Bloch convention
+        const pVec = project(bx, bz, by);
+
+        // Draw vector
+        ctx.beginPath();
+        ctx.moveTo(pOrigin.px, pOrigin.py);
+        ctx.lineTo(pVec.px, pVec.py);
+        ctx.strokeStyle = "#7c3aed";
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+
+        // Arrowhead
+        ctx.beginPath();
+        ctx.arc(pVec.px, pVec.py, 6, 0, Math.PI * 2);
+        ctx.fillStyle = "#7c3aed";
+        ctx.fill();
+
+        // Info
+        const info = document.getElementById("blochInfo");
+        info.innerHTML = `
+    <div class="grid grid-cols-2 gap-x-6 gap-y-1 text-left mx-auto" style="max-width:300px;">
+      <span class="text-slate-400">Bloch x:</span><span class="text-slate-700">${
+          bx.toFixed(4)
+        }</span>
+      <span class="text-slate-400">Bloch y:</span><span class="text-slate-700">${
+          by.toFixed(4)
+        }</span>
+      <span class="text-slate-400">Bloch z:</span><span class="text-slate-700">${
+          bz.toFixed(4)
+        }</span>
+      <span class="text-slate-400">θ (theta):</span><span class="text-slate-700">${
+          theta.toFixed(4)
+        } rad</span>
+      <span class="text-slate-400">φ (phi):</span><span class="text-slate-700">${
+          phi.toFixed(4)
+        } rad</span>
+      ${
+          qState
+            ? `<span class="text-slate-400">P(|0⟩):</span><span class="text-slate-700">${
+              (qState.prob0 * 100).toFixed(1)
+            }%</span>
+      <span class="text-slate-400">P(|1⟩):</span><span class="text-slate-700">${
+              (qState.prob1 * 100).toFixed(1)
+            }%</span>
+      <span class="text-slate-400">Purity:</span><span class="text-slate-700">${
+              qState.purity.toFixed(4)
+            }</span>`
+            : ""
+        }
+    </div>`;
+      }
+
+      // ============================================================
+      // INIT
+      // ============================================================
+      init();
+    </script>
+  </body>
+</html>
