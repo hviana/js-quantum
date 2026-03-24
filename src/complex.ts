@@ -36,15 +36,15 @@ export class Complex {
   readonly im: number;
 
   /** The complex zero: 0 + 0i. */
-  static readonly ZERO = new Complex(0, 0);
+  static readonly ZERO: Complex = new Complex(0, 0);
   /** The real unit: 1 + 0i. */
-  static readonly ONE = new Complex(1, 0);
+  static readonly ONE: Complex = new Complex(1, 0);
   /** The imaginary unit: 0 + 1i. */
-  static readonly I = new Complex(0, 1);
+  static readonly I: Complex = new Complex(0, 1);
   /** Negative imaginary unit: 0 - 1i. */
-  static readonly MINUS_I = new Complex(0, -1);
+  static readonly MINUS_I: Complex = new Complex(0, -1);
   /** Negative real unit: -1 + 0i. */
-  static readonly MINUS_ONE = new Complex(-1, 0);
+  static readonly MINUS_ONE: Complex = new Complex(-1, 0);
 
   /**
    * Creates a new complex number.
