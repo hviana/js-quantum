@@ -14,89 +14,95 @@ The graphical circuit has the following logic and structure:
 
 Use this description for the AI ​​to reproduce the interface:
 
-```text
-Technical, clean, and horizontal quantum circuit editor.
+IBM Quantum Composer-style circuit editor.
 
-Left:
+Clean technical interface.
+On the left, vertically stacked labels:
 q[0]
 q[1]
 q[2]
 c
 
-Each label has a thin horizontal line extending to the right.
-The lines q[0], q[1], q[2] are the qubit wires.
+From each label, a thin horizontal line extends to the right.
+The q[...] lines are quantum wires.
+The c line is the single classical register line.
 
-The line c is the single classical strip.
+The circuit is read from left to right.
+Each vertical column represents one logical step in the circuit.
+Operations placed in the same column belong to the same step.
+Show soft vertical column separators to make the step order visually clear.
 
-Horizontal flow:
-Everything happens from left to right.
+Single-qubit gates:
+A gate is drawn as a small box or symbol centered on one quantum wire.
 
-Each visual column represents a logical step of the circuit.
+Example:
+q[0] ───[H]────
 
-In “Layers” mode, smooth vertical separators appear between columns.
+Controlled operations:
+Use a filled dot on the control qubit.
+Use a vertical line connecting control and target.
+Use the target symbol on the target qubit.
 
-In “Left” mode, the elements are compacted to the left.
-
-In “Freeform” mode, there is more free space.
-
-``
-
-The main visual rules are these: simple gates are centered on a single quantum wire; the execution order is horizontal; in Layers mode the interface explicitly shows this order with column delimiters. The documentation describes exactly these three alignment modes and says that Layers shows the execution order “from left to right and from top to bottom”. ([IBM Quantum][1])
-
-Vertical connections appear only in specific cases:
-
-```text
-1) Controlled gate
+Example:
 q[0] ───●────
-│
+        │
 q[1] ───X────
 
-2) Measurement for the classical register
-q[1] ───M────
-│
-c ───╧────
+If there are multiple controls, stack multiple filled dots vertically on different qubit lines and connect them with one vertical line to the target.
 
-3) Global barrier column / phase disk
+Example:
+q[0] ───●────
+        │
+q[1] ───●────
+        │
+q[2] ───X────
+
+Measurement:
+A measurement symbol is placed on a quantum wire.
+A vertical connection goes downward from that quantum wire to the single classical line c.
+
+Example:
+q[1] ───[M]────
+        │
+c    ───╧──────
+
+Classical conditions:
+Do not draw separate classical wires like c[0], c[1], c[2].
+Only one classical line exists: c.
+Conditional execution is shown as an annotation attached to the gate, not as a quantum-style control wire.
+
+Example:
+q[2] ───[X | if(c==1)]────
+
+Global vertical columns:
+Some elements can appear as full vertical columns affecting all qubit rows at the same horizontal position, such as barriers or phase markers.
+
+Example:
 q[0] ───|────(◔)──
 q[1] ───|────(◔)──
 q[2] ───|────(◔)──
-```
 
-In the case of the **controlled gate**, the documentation itself says that when adding the control modifier, “a point appears on the control qubit and a line connects to the target qubit”. In the case of **phase disks**, it says that a **column** of barriers and a **column** of phase disks are added, one per qubit. ([IBM Quantum][1])
+Visual vocabulary:
+quantum wire:      ─────
+classical line:    ─────
+gate box:          [H] [X] [RZ] [M]
+control:           ●
+target:            X
+vertical link:     │
+barrier:           |
+phase marker:      (◔)
+classical cond.:   if(c==k)
 
-For the classical part, use this short rule:
-
-```text
-The classical line is “c”.
-
-Do not draw c[0], c[1], c[2] as separate wires.
-
-Measurement results descend from the qubits to line c.
-
-Classical conditions appear as gate annotations, for example:
-[X | if(c==1)]
-
-```
-
-This is consistent with the official documentation: Composer adds `if` **to the gate** and the associated OpenQASM examples use the classical register as `c`, for example `if(c==5) ...`. ([IBM Quantum][1])
-
-Final version, very compact, ready for AI:
-
-```text
-IBM Quantum Composer circuit editor interface.
-Clean, technical background.
-On the left, labels stacked vertically: q[0], q[1], q[2], c.
-From each label comes a thin horizontal line to the right.
-The q[i] lines are quantum wires; the c line is the single classical strip.
-Operations are boxes or symbols placed on the wires.
-The visual sequence is always from left to right.
-Same column = same logical step.
-
-Controlled gates create a vertical connection between qubits: a solid point on the control + a vertical line to the target.
-Measurements descend vertically from the quantum wire to the c-line.
-Classical conditionals do not create a new wire; they appear coupled to the gate as text like if(c==1).
-Barrier and phase disks can form repeated vertical columns on all qubits.
-In Layers mode, show smooth vertical delimiters between columns.
+Core rules:
+- Left side shows q[0], q[1], q[2], c.
+- One horizontal wire per qubit, plus one single classical line c.
+- Time/order flows left to right.
+- Same column = same logical step.
+- Vertical links appear only when needed:
+  - controlled quantum gates
+  - measurement down to c
+  - full-column global markers like barriers or phase markers
+- Classical conditions are attached to gates as text, not drawn as separate classical control wires.
 
 
 Additionally, there should be 2 buttons: one "edit quantum code" and one "edit classical code".
