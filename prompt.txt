@@ -1,0 +1,77 @@
+Create a Deno TypeScript library to be published on the JSR named jsQuantum to simulate quantum computing without external libraries and without using Deno-specific APIs.
+First, create a qubit class with all the properties that a qubit has, so that this class allows you to perform all the arithmetic/algebraic operations necessary for all the gates and computations that quantum computing allows.
+
+Also implement all the basic algebraic operations necessary for quantum computing on qubits.
+
+Implement the following features and gates:
+
+Operations:
+
+Hadamard
+
+Classical:
+
+NOT
+CNOT
+Toffoli
+SWAP
+Identity
+
+Phase:
+
+T
+S
+Z
+Tdg
+Sdg
+
+Phase:
+RZ
+
+Quantum:
+SX
+SXdg
+Y
+RX
+RXX
+RZZ
+U
+rccx (requires 3 qubits)
+rc3x (requires 4 qubits)
+
+Non-unitary operations and modifiers:
+Measure - measures the probability of 1 and 0 on the z-axis. Not a reversible operation.
+
+Reset - moves the qubit to its initial state |0|. Not a reversible operation.
+
+Carefully read the qiskit library documentation to understand each feature mentioned.
+
+Remember the parameters of each feature for the correct construction of the library. For example, Phase has lambda (rotation) and one qubit as parameters, SWAP has two qubits as parameters, etc.
+In addition, applicable features also have an optional control parameter, which specifies a control qubit for that feature. Furthermore, the features must also have an optional parameter which is the "if" based on the classical register. Similar to qiskit, if the bit vector representing the classical register is an integer representing the value passed in the parameter (if the parameter is specified), it executes the feature, otherwise it does not execute.
+
+This library has a JSON serializer that, from the code, generates a very well-structured JSON that serves not only to save the code, but also to allow for a later visual construction of the quantum circuit. The library should also allow the code to be generated from this JSON. To make this simple and feasible, the library code must be within the scope of the following:
+const code = quantum(numQubits, numRegs, (qc) => {
+});
+
+That is, the input parameter is the number of qubits and the number of classical registers (classical bits) of the classical register. This code should only allow resources from the quantum simulation library. Any code or JavaScript statement outside this scope should generate an error, preventing simulation or JSON generation.
+
+The order of the code is important; it affects the classical register and the internal conditions of the quantum circuit that uses this classical register.
+
+There should also be a simulate(code, params, numShots) method. This method simulates the code, where params is a JavaScript object of type key->value representing classical computation parameters passed to the quantum code, and numShots is the number of shots. This method returns the probability of the computational states from 0 to 100% given the number of shots. For example, with 2 qubits, we have the probabilities 00, 01, 10, and 11.
+
+The parameters (simulate parameters) passed to the quantum code must be accessible by the quantum code with something like:
+const code = quantum(numQubits, numRegs, (qc) => {
+qc.param("theta")
+});
+
+The qubits have the initial state ∣0⟩
+
+The library should make extensive use of software engineering and have extensive documentation, including JSDoc.
+
+It should have a central mod.ts file that imports and exports all the library's resources, in order to facilitate the import of library resources through a single file.
+The explanation of quantum computing given in this prompt is basic; explore all existing knowledge and be inspired by the Qiskit library.
+
+Finally, generate a comprehensive readme describing each library feature and how to use it. At the end of the README, there should be a description of the strategy used to build the code, such as the qubit structure, the arithmetic/algebraic operations used, and how they are used to create the code.
+Make the README aesthetically pleasing, making extensive use of formatting features, code snippets, diagrams, graphs, etc.
+
+Credit Henrique Emanoel Viana as the author under the MIT license.

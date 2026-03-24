@@ -1,0 +1,143 @@
+Using the following library, build a web-based graphical interface similar to the IBM Quantum Platform named jsQuantum Quantum Computing Simulator.
+The graphical interface should be written in pure HTML and JavaScript, with only Tailwind CSS for styling, entirely in English, and mobile-first.
+Create an interface with light tones and use emojis instead of icons.
+Both the code and the interface should be in English. The result should be a single HTML file.
+The interface should be visually appealing and make extensive use of Tailwind CSS's visual features and elements.
+It should have an "Operations" menu, which includes operations such as NOT, CNOT, T, Measure, etc.
+It should be possible to click and drag these operations onto a graphical circuit. These operations should also be editable upon clicking.
+
+For the page title, enter "Quantum and Hybrid Systems Simulator"
+
+The graphical circuit has the following logic and structure:
+
+Use this description for the AI ​​to reproduce the interface:
+
+```text
+Technical, clean, and horizontal quantum circuit editor.
+
+Left:
+q[0]
+q[1]
+q[2]
+c
+
+Each label has a thin horizontal line extending to the right.
+The lines q[0], q[1], q[2] are the qubit wires.
+
+The line c is the single classical strip.
+
+Horizontal flow:
+Everything happens from left to right.
+
+Each visual column represents a logical step of the circuit.
+
+In “Layers” mode, smooth vertical separators appear between columns.
+
+In “Left” mode, the elements are compacted to the left.
+
+In “Freeform” mode, there is more free space.
+
+``
+
+The main visual rules are these: simple gates are centered on a single quantum wire; the execution order is horizontal; in Layers mode the interface explicitly shows this order with column delimiters. The documentation describes exactly these three alignment modes and says that Layers shows the execution order “from left to right and from top to bottom”. ([IBM Quantum][1])
+
+Vertical connections appear only in specific cases:
+
+```text
+1) Controlled gate
+q[0] ───●────
+│
+q[1] ───X────
+
+2) Measurement for the classical register
+q[1] ───M────
+│
+c ───╧────
+
+3) Global barrier column / phase disk
+q[0] ───|────(◔)──
+q[1] ───|────(◔)──
+q[2] ───|────(◔)──
+```
+
+In the case of the **controlled gate**, the documentation itself says that when adding the control modifier, “a point appears on the control qubit and a line connects to the target qubit”. In the case of **phase disks**, it says that a **column** of barriers and a **column** of phase disks are added, one per qubit. ([IBM Quantum][1])
+
+For the classical part, use this short rule:
+
+```text
+The classical line is “c”.
+
+Do not draw c[0], c[1], c[2] as separate wires.
+
+Measurement results descend from the qubits to line c.
+
+Classical conditions appear as gate annotations, for example:
+[X | if(c==1)]
+
+```
+
+This is consistent with the official documentation: Composer adds `if` **to the gate** and the associated OpenQASM examples use the classical register as `c`, for example `if(c==5) ...`. ([IBM Quantum][1])
+
+Final version, very compact, ready for AI:
+
+```text
+IBM Quantum Composer circuit editor interface.
+Clean, technical background.
+On the left, labels stacked vertically: q[0], q[1], q[2], c.
+From each label comes a thin horizontal line to the right.
+The q[i] lines are quantum wires; the c line is the single classical strip.
+Operations are boxes or symbols placed on the wires.
+The visual sequence is always from left to right.
+Same column = same logical step.
+
+Controlled gates create a vertical connection between qubits: a solid point on the control + a vertical line to the target.
+Measurements descend vertically from the quantum wire to the c-line.
+Classical conditionals do not create a new wire; they appear coupled to the gate as text like if(c==1).
+Barrier and phase disks can form repeated vertical columns on all qubits.
+In Layers mode, show smooth vertical delimiters between columns.
+
+
+Additionally, there should be 2 buttons: one "edit quantum code" and one "edit classical code".
+
+The "edit quantum code" opens a popup JavaScript code editor with a skeleton like:
+
+"
+const code = quantum(2, 2, (qc) => {
+
+// quantum code
+});
+
+Changes to the code should be reflected in changes to the visual circuit, etc. For this, toJSON and fromJSON should be used.
+
+The "edit classical code" popup opens a JavaScript code editor popup with a skeleton like:
+
+(qr) => { //qr is SimulationResult
+return {} //return SimulationParams
+}
+
+As a code editor, use the Monaco editor via CDNJS.
+
+This is so that each uses the respective sequence:
+Execute the classical code (only in the first shot qr is a SimulationResult with an empty map).
+Take the result of the classical code and use the return as input for the quantum code with only 1 shot and save the result of that shot.
+
+In the next shot, it will execute:
+
+classical code with the output of the quantum code
+quantum code with only 1 shot with the output of the classical code,
+etc.
+
+This serves to separate what is quantum from classical, execute both in loops and simulate hybrid systems, which is why the quantum code is executed shot by shot.
+
+There needs to be an "run simulation" button, which takes as input the number of shots from 1 to 1024.
+Clicking this button opens a graph below the circuit showing each combination of the system's qubits with their respective probabilities, that is, the average of all shots that were executed in the 1-to-1 hybrid loop.
+
+Finally, clicking on a qubit should open a popup with a 3D Bloch sphere with all its elements, including the values ​​of the two angles, the labels of the x, y, and z axes. This also includes θ, φ, |0⟩, |1⟩, |+⟩
+|−⟩, |+i⟩, |−i⟩
+This sphere should be able to be rotated by clicking and dragging.
+
+To do this, use the library "jsr:@hviana/js-quantum", importing it as follows: import { /* imports */ } from "https://esm.sh/jsr/@hviana/js-quantum";
+
+Here is the library's README 
+
+(readme)

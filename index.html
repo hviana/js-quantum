@@ -1,0 +1,2137 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quantum and Hybrid Systems Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/editor/editor.main.min.css"
+    >
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap");
+      :root {
+        --bg: #f4f6f9;
+        --surface: #ffffff;
+        --wire: #8a9bb5;
+        --gate-bg: #e8edf5;
+        --gate-border: #b0bdd0;
+        --accent: #4a6fa5;
+        --accent2: #6c5ce7;
+        --text: #2d3748;
+        --text-light: #718096;
+        --danger: #e53e3e;
+        --success: #38a169;
+        --ctrl-dot: #2d3748;
+        --measure-line: #e53e3e;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "IBM Plex Sans", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      .mono {
+        font-family: "IBM Plex Mono", monospace;
+      }
+      .circuit-canvas {
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+      .wire-line {
+        stroke: var(--wire);
+        stroke-width: 1.5;
+      }
+      .classical-wire {
+        stroke: var(--wire);
+        stroke-width: 2.5;
+        stroke-dasharray: 6 3;
+      }
+      .gate-box {
+        fill: var(--gate-bg);
+        stroke: var(--gate-border);
+        stroke-width: 1.5;
+        rx: 6;
+        ry: 6;
+        cursor: grab;
+        transition: filter 0.15s;
+      }
+      .gate-box:hover {
+        filter: drop-shadow(0 2px 6px rgba(74, 111, 165, 0.3));
+      }
+      .gate-box.dragging {
+        opacity: 0.5;
+      }
+      .gate-label {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 13px;
+        fill: var(--text);
+        pointer-events: none;
+        user-select: none;
+      }
+      .ctrl-dot {
+        fill: var(--ctrl-dot);
+      }
+      .ctrl-line {
+        stroke: var(--ctrl-dot);
+        stroke-width: 1.5;
+      }
+      .measure-arrow {
+        stroke: var(--measure-line);
+        stroke-width: 1.5;
+      }
+      .column-sep {
+        stroke: #d0d8e8;
+        stroke-width: 1;
+        stroke-dasharray: 4 4;
+      }
+      .qubit-label {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 13px;
+        fill: var(--text);
+      }
+      .drop-zone {
+        fill: transparent;
+        stroke: none;
+        cursor: crosshair;
+      }
+      .drop-zone:hover {
+        fill: rgba(74, 111, 165, 0.06);
+      }
+      .drop-zone.active {
+        fill: rgba(74, 111, 165, 0.12);
+        stroke: var(--accent);
+        stroke-width: 1;
+        stroke-dasharray: 4 2;
+      }
+      .ops-item {
+        cursor: grab;
+        user-select: none;
+        transition: all 0.15s;
+        border: 1.5px solid #d0d8e8;
+        background: #fff;
+      }
+      .ops-item:hover {
+        border-color: var(--accent);
+        box-shadow: 0 2px 8px rgba(74, 111, 165, 0.18);
+        transform: translateY(-1px);
+      }
+      .ops-item:active {
+        cursor: grabbing;
+      }
+      .bloch-canvas {
+        cursor: grab;
+      }
+      .bloch-canvas:active {
+        cursor: grabbing;
+      }
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.4);
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+      }
+      .modal-overlay.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .modal-content {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+        max-width: 90vw;
+        max-height: 90vh;
+        overflow: hidden;
+        transform: scale(0.95);
+        transition: transform 0.2s;
+      }
+      .modal-overlay.open .modal-content {
+        transform: scale(1);
+      }
+      #results-chart {
+        transition: opacity 0.3s;
+      }
+      .tooltip {
+        position: absolute;
+        background: #2d3748;
+        color: #fff;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 12px;
+        pointer-events: none;
+        z-index: 50;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .tooltip.show {
+        opacity: 1;
+      }
+      ::-webkit-scrollbar {
+        height: 8px;
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #edf2f7;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #b0bdd0;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen">
+    <!-- HEADER -->
+    <header
+      class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm"
+    >
+      <div
+        class="max-w-screen-2xl mx-auto px-3 sm:px-6 py-3 flex items-center justify-between gap-3 flex-wrap"
+      >
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">⚛️</span>
+          <h1
+            class="text-base sm:text-lg font-semibold tracking-tight text-gray-800"
+          >
+            Quantum and Hybrid Systems Simulator
+          </h1>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-xs text-gray-400 mono hidden sm:inline"
+          >jsQuantum</span>
+          <select
+            id="alignMode"
+            class="text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white focus:ring-2 focus:ring-blue-200 outline-none"
+          >
+            <option value="layers">📐 Layers</option>
+            <option value="left">⬅️ Left</option>
+            <option value="freeform">✨ Freeform</option>
+          </select>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN -->
+    <main class="max-w-screen-2xl mx-auto px-3 sm:px-6 py-4 space-y-4">
+      <!-- TOOLBAR -->
+      <div class="flex flex-wrap gap-2 items-center">
+        <button
+          onclick="openQuantumEditor()"
+          class="px-3 py-2 text-sm font-medium rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 transition"
+        >
+          📝 Edit Quantum Code
+        </button>
+        <button
+          onclick="openClassicalEditor()"
+          class="px-3 py-2 text-sm font-medium rounded-lg bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition"
+        >
+          🖥️ Edit Classical Code
+        </button>
+        <div class="flex items-center gap-2 ml-auto">
+          <label class="text-xs text-gray-500">Shots:</label>
+          <input
+            id="numShots"
+            type="number"
+            min="1"
+            max="1024"
+            value="100"
+            class="w-20 text-sm border border-gray-300 rounded-lg px-2 py-1.5 mono focus:ring-2 focus:ring-blue-200 outline-none"
+          >
+          <button
+            onclick="runSimulation()"
+            id="runBtn"
+            class="px-4 py-2 text-sm font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 transition shadow-sm"
+          >
+            🚀 Run Simulation
+          </button>
+        </div>
+      </div>
+
+      <!-- QUBIT CONFIG -->
+      <div
+        class="flex flex-wrap gap-2 items-center bg-white rounded-xl border border-gray-200 px-4 py-2.5"
+      >
+        <span class="text-sm text-gray-600 font-medium">⚙️ Circuit:</span>
+        <label class="text-xs text-gray-500">Qubits:</label>
+        <input
+          id="numQubitsIn"
+          type="number"
+          min="1"
+          max="8"
+          value="3"
+          class="w-14 text-sm border border-gray-300 rounded-lg px-2 py-1 mono focus:ring-2 focus:ring-blue-200 outline-none"
+          onchange="rebuildCircuit()"
+        >
+        <label class="text-xs text-gray-500">Classical bits:</label>
+        <input
+          id="numCbitsIn"
+          type="number"
+          min="0"
+          max="8"
+          value="3"
+          class="w-14 text-sm border border-gray-300 rounded-lg px-2 py-1 mono focus:ring-2 focus:ring-blue-200 outline-none"
+          onchange="rebuildCircuit()"
+        >
+        <button
+          onclick="clearCircuit()"
+          class="ml-2 text-xs px-2.5 py-1 rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition"
+        >
+          🗑️ Clear
+        </button>
+        <button
+          onclick="addColumn()"
+          class="text-xs px-2.5 py-1 rounded-lg bg-green-50 text-green-700 border border-green-200 hover:bg-green-100 transition"
+        >
+          ➕ Column
+        </button>
+      </div>
+
+      <!-- OPERATIONS PANEL + CIRCUIT -->
+      <div class="flex flex-col lg:flex-row gap-4">
+        <!-- OPS MENU -->
+        <div class="lg:w-48 flex-shrink-0">
+          <div class="bg-white rounded-xl border border-gray-200 p-3">
+            <h3
+              class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2"
+            >
+              🔧 Operations
+            </h3>
+            <div
+              id="opsPanel"
+              class="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-2 gap-1.5"
+            >
+            </div>
+          </div>
+        </div>
+
+        <!-- CIRCUIT -->
+        <div
+          class="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden"
+        >
+          <div
+            class="px-4 py-2 border-b border-gray-100 flex items-center justify-between"
+          >
+            <span
+              class="text-xs font-semibold text-gray-500 uppercase tracking-wider"
+            >🔬 Circuit</span>
+            <span id="circuitInfo" class="text-xs text-gray-400 mono"></span>
+          </div>
+          <div class="circuit-canvas p-2" id="circuitContainer">
+            <svg id="circuitSvg" xmlns="http://www.w3.org/2000/svg"></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESULTS -->
+      <div id="resultsPanel" class="hidden">
+        <div class="bg-white rounded-xl border border-gray-200 p-4">
+          <h3 class="text-sm font-semibold text-gray-700 mb-3">
+            📊 Simulation Results
+          </h3>
+          <div id="resultsInfo" class="text-xs text-gray-500 mb-3 mono"></div>
+          <canvas id="resultsChart" height="220"></canvas>
+        </div>
+      </div>
+    </main>
+
+    <!-- GATE EDITOR MODAL -->
+    <div
+      id="gateModal"
+      class="modal-overlay"
+      onclick="if(event.target===this)closeGateModal()"
+    >
+      <div class="modal-content w-96">
+        <div
+          class="px-5 py-3 border-b border-gray-100 flex items-center justify-between"
+        >
+          <h3 class="font-semibold text-gray-800" id="gateModalTitle">
+            Edit Gate
+          </h3>
+          <button
+            onclick="closeGateModal()"
+            class="text-gray-400 hover:text-gray-600 text-xl"
+          >
+            &times;
+          </button>
+        </div>
+        <div id="gateModalBody" class="p-5 space-y-3"></div>
+        <div class="px-5 py-3 border-t border-gray-100 flex gap-2 justify-end">
+          <button
+            onclick="deleteGateFromModal()"
+            class="px-3 py-1.5 text-sm rounded-lg bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+          >
+            🗑️ Delete
+          </button>
+          <button
+            onclick="saveGateFromModal()"
+            class="px-3 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+          >
+            💾 Save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- QUANTUM CODE EDITOR MODAL -->
+    <div
+      id="qcodeModal"
+      class="modal-overlay"
+      onclick="if(event.target===this)closeQuantumEditor()"
+    >
+      <div
+        class="modal-content"
+        style="width: 700px; max-width: 95vw; height: 520px; max-height: 90vh; display: flex; flex-direction: column"
+      >
+        <div
+          class="px-5 py-3 border-b border-gray-100 flex items-center justify-between"
+        >
+          <h3 class="font-semibold text-gray-800">📝 Quantum Code Editor</h3>
+          <button
+            onclick="closeQuantumEditor()"
+            class="text-gray-400 hover:text-gray-600 text-xl"
+          >
+            &times;
+          </button>
+        </div>
+        <div id="qcodeEditorContainer" style="flex: 1"></div>
+        <div class="px-5 py-3 border-t border-gray-100 flex gap-2 justify-end">
+          <button
+            onclick="applyQuantumCode()"
+            class="px-4 py-2 text-sm rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 font-medium"
+          >
+            ✅ Apply to Circuit
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLASSICAL CODE EDITOR MODAL -->
+    <div
+      id="ccodeModal"
+      class="modal-overlay"
+      onclick="if(event.target===this)closeClassicalEditor()"
+    >
+      <div
+        class="modal-content"
+        style="width: 700px; max-width: 95vw; height: 520px; max-height: 90vh; display: flex; flex-direction: column"
+      >
+        <div
+          class="px-5 py-3 border-b border-gray-100 flex items-center justify-between"
+        >
+          <h3 class="font-semibold text-gray-800">🖥️ Classical Code Editor</h3>
+          <button
+            onclick="closeClassicalEditor()"
+            class="text-gray-400 hover:text-gray-600 text-xl"
+          >
+            &times;
+          </button>
+        </div>
+        <div id="ccodeEditorContainer" style="flex: 1"></div>
+        <div class="px-5 py-3 border-t border-gray-100 flex gap-2 justify-end">
+          <button
+            onclick="applyClassicalCode()"
+            class="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white hover:bg-purple-700 font-medium"
+          >
+            ✅ Save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BLOCH SPHERE MODAL -->
+    <div
+      id="blochModal"
+      class="modal-overlay"
+      onclick="if(event.target===this)closeBlochModal()"
+    >
+      <div class="modal-content" style="width: 480px; max-width: 95vw">
+        <div
+          class="px-5 py-3 border-b border-gray-100 flex items-center justify-between"
+        >
+          <h3 class="font-semibold text-gray-800" id="blochTitle">
+            🌐 Bloch Sphere — q[0]
+          </h3>
+          <button
+            onclick="closeBlochModal()"
+            class="text-gray-400 hover:text-gray-600 text-xl"
+          >
+            &times;
+          </button>
+        </div>
+        <div class="p-4 flex flex-col items-center">
+          <canvas
+            id="blochCanvas"
+            width="400"
+            height="400"
+            class="bloch-canvas rounded-xl"
+            style="max-width: 100%"
+          ></canvas>
+          <div
+            id="blochInfo"
+            class="mt-3 text-sm mono text-gray-600 text-center space-y-1"
+          >
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOOLTIP -->
+    <div id="tooltip" class="tooltip"></div>
+
+    <!-- SCRIPTS -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.55.1/min/vs/loader.min.js"
+    ></script>
+    <script type="module">
+      import {
+        deserialize,
+        fromJSON,
+        getQubitState,
+        getStateVector,
+        quantum,
+        serialize,
+        simulate,
+        toJSON,
+      } from "https://esm.sh/jsr/@hviana/js-quantum";
+
+      // ══════════════════════════════════════════════
+      // GLOBALS
+      // ══════════════════════════════════════════════
+      window._qLib = {
+        quantum,
+        simulate,
+        serialize,
+        toJSON,
+        fromJSON,
+        deserialize,
+        getStateVector,
+        getQubitState,
+      };
+
+      const GATE_DEFS = [
+        {
+          id: "x",
+          label: "X",
+          emoji: "🔴",
+          tip: "NOT / Pauli-X",
+          qubits: 1,
+          params: [],
+        },
+        {
+          id: "y",
+          label: "Y",
+          emoji: "🟢",
+          tip: "Pauli-Y",
+          qubits: 1,
+          params: [],
+        },
+        {
+          id: "z",
+          label: "Z",
+          emoji: "🔵",
+          tip: "Pauli-Z",
+          qubits: 1,
+          params: [],
+        },
+        {
+          id: "h",
+          label: "H",
+          emoji: "🟡",
+          tip: "Hadamard",
+          qubits: 1,
+          params: [],
+        },
+        {
+          id: "s",
+          label: "S",
+          emoji: "🟣",
+          tip: "Phase S (π/2)",
+          qubits: 1,
+          params: [],
+        },
+        {
+          id: "sdg",
+          label: "S†",
+          emoji: "🟤",
+          tip: "Phase S† (-π/2)",
+          qubits: 1,
+          params: [],
+        },
+        {
+          id: "t",
+          label: "T",
+          emoji: "🩵",
+          tip: "Phase T (π/4)",
+          qubits: 1,
+          params: [],
+        },
+        {
+          id: "tdg",
+          label: "T†",
+          emoji: "🩶",
+          tip: "Phase T† (-π/4)",
+          qubits: 1,
+          params: [],
+        },
+        {
+          id: "sx",
+          label: "√X",
+          emoji: "🧡",
+          tip: "Square root X",
+          qubits: 1,
+          params: [],
+        },
+        {
+          id: "sxdg",
+          label: "√X†",
+          emoji: "💛",
+          tip: "Inverse √X",
+          qubits: 1,
+          params: [],
+        },
+        {
+          id: "cx",
+          label: "CX",
+          emoji: "⚡",
+          tip: "CNOT (ctrl→target)",
+          qubits: 2,
+          params: [],
+          needsTarget: true,
+        },
+        {
+          id: "swap",
+          label: "SW",
+          emoji: "🔄",
+          tip: "SWAP",
+          qubits: 2,
+          params: [],
+          needsTarget: true,
+        },
+        {
+          id: "ccx",
+          label: "CCX",
+          emoji: "⚡⚡",
+          tip: "Toffoli",
+          qubits: 3,
+          params: [],
+          needsTarget: true,
+        },
+        {
+          id: "rx",
+          label: "Rx",
+          emoji: "↩️",
+          tip: "Rotation X",
+          qubits: 1,
+          params: ["θ"],
+        },
+        {
+          id: "rz",
+          label: "Rz",
+          emoji: "↪️",
+          tip: "Rotation Z",
+          qubits: 1,
+          params: ["λ"],
+        },
+        {
+          id: "p",
+          label: "P",
+          emoji: "📐",
+          tip: "Phase P(λ)",
+          qubits: 1,
+          params: ["λ"],
+        },
+        {
+          id: "u",
+          label: "U",
+          emoji: "🌀",
+          tip: "Universal U(θ,φ,λ)",
+          qubits: 1,
+          params: ["θ", "φ", "λ"],
+        },
+        {
+          id: "rxx",
+          label: "Rxx",
+          emoji: "🔗",
+          tip: "XX interaction",
+          qubits: 2,
+          params: ["θ"],
+          needsTarget: true,
+        },
+        {
+          id: "rzz",
+          label: "Rzz",
+          emoji: "🔗",
+          tip: "ZZ interaction",
+          qubits: 2,
+          params: ["θ"],
+          needsTarget: true,
+        },
+        {
+          id: "id",
+          label: "I",
+          emoji: "⬜",
+          tip: "Identity",
+          qubits: 1,
+          params: [],
+        },
+        {
+          id: "measure",
+          label: "M",
+          emoji: "📏",
+          tip: "Measure",
+          qubits: 1,
+          params: ["cbit"],
+          isMeasure: true,
+        },
+        {
+          id: "reset",
+          label: "R",
+          emoji: "♻️",
+          tip: "Reset to |0⟩",
+          qubits: 1,
+          params: [],
+        },
+      ];
+      const GATE_MAP = {};
+      GATE_DEFS.forEach((g) => GATE_MAP[g.id] = g);
+
+      let numQubits = 3, numCbits = 3;
+      let circuitGrid = []; // [col][row] = gate or null
+      let numCols = 6;
+      let editingGate = null; // {col, row}
+      let draggingGateId = null;
+      let qcodeEditor = null, ccodeEditor = null;
+      let classicalCode =
+        `(qr) => {\n  // qr is SimulationResult (e.g. {"00": 50, "11": 50})\n  return {}; // return SimulationParams\n}`;
+      let lastSimResult = null;
+
+      // ══════════════════════════════════════════════
+      // INIT
+      // ══════════════════════════════════════════════
+      window.addEventListener("DOMContentLoaded", () => {
+        buildOpsPanel();
+        rebuildCircuit();
+      });
+
+      // ══════════════════════════════════════════════
+      // OPS PANEL
+      // ══════════════════════════════════════════════
+      function buildOpsPanel() {
+        const panel = document.getElementById("opsPanel");
+        panel.innerHTML = "";
+        GATE_DEFS.forEach((g) => {
+          const el = document.createElement("div");
+          el.className = "ops-item rounded-lg px-2 py-1.5 text-center";
+          el.setAttribute("draggable", "true");
+          el.setAttribute("data-gate", g.id);
+          el.title = g.tip;
+          el.innerHTML =
+            `<div class="text-base leading-tight">${g.emoji}</div><div class="text-[10px] mono font-medium text-gray-600 mt-0.5">${g.label}</div>`;
+          el.addEventListener("dragstart", (e) => {
+            draggingGateId = g.id;
+            e.dataTransfer.setData("text/plain", g.id);
+            e.dataTransfer.effectAllowed = "copy";
+          });
+          el.addEventListener("dragend", () => {
+            draggingGateId = null;
+            clearDropHighlights();
+          });
+          panel.appendChild(el);
+        });
+      }
+
+      // ══════════════════════════════════════════════
+      // CIRCUIT GRID
+      // ══════════════════════════════════════════════
+      function initGrid() {
+        circuitGrid = [];
+        for (let c = 0; c < numCols; c++) {
+          circuitGrid[c] = [];
+          for (let r = 0; r < numQubits; r++) circuitGrid[c][r] = null;
+        }
+      }
+
+      window.rebuildCircuit = function () {
+        numQubits = Math.max(
+          1,
+          Math.min(
+            8,
+            parseInt(document.getElementById("numQubitsIn").value) || 3,
+          ),
+        );
+        numCbits = Math.max(
+          0,
+          Math.min(
+            8,
+            parseInt(document.getElementById("numCbitsIn").value) || 3,
+          ),
+        );
+        document.getElementById("numQubitsIn").value = numQubits;
+        document.getElementById("numCbitsIn").value = numCbits;
+        // preserve existing gates if possible
+        const oldGrid = circuitGrid;
+        initGrid();
+        for (let c = 0; c < Math.min(oldGrid.length, numCols); c++) {
+          for (
+            let r = 0;
+            r < Math.min((oldGrid[c] || []).length, numQubits);
+            r++
+          ) {
+            circuitGrid[c][r] = oldGrid[c][r];
+          }
+        }
+        renderCircuit();
+      };
+
+      window.clearCircuit = function () {
+        initGrid();
+        renderCircuit();
+      };
+
+      window.addColumn = function () {
+        numCols++;
+        circuitGrid.push(new Array(numQubits).fill(null));
+        renderCircuit();
+      };
+
+      // ══════════════════════════════════════════════
+      // RENDER CIRCUIT SVG
+      // ══════════════════════════════════════════════
+      const WIRE_Y_START = 40,
+        WIRE_SPACING = 50,
+        LABEL_W = 50,
+        COL_W = 70,
+        GATE_SIZE = 36;
+      const CLASSICAL_GAP = 20;
+
+      function getWireY(row) {
+        return WIRE_Y_START + row * WIRE_SPACING;
+      }
+      function getClassicalY() {
+        return WIRE_Y_START + numQubits * WIRE_SPACING + CLASSICAL_GAP;
+      }
+      function getColX(col) {
+        return LABEL_W + 30 + col * COL_W + COL_W / 2;
+      }
+
+      function renderCircuit() {
+        const svg = document.getElementById("circuitSvg");
+        const totalW = LABEL_W + 30 + numCols * COL_W + 40;
+        const totalH = getClassicalY() + (numCbits > 0 ? 30 : 10);
+        svg.setAttribute("width", totalW);
+        svg.setAttribute("height", totalH);
+        svg.setAttribute("viewBox", `0 0 ${totalW} ${totalH}`);
+        svg.innerHTML = "";
+        const mode = document.getElementById("alignMode").value;
+
+        // Wires
+        for (let r = 0; r < numQubits; r++) {
+          const y = getWireY(r);
+          // label
+          const labelEl = svgEl("text", {
+            x: 10,
+            y: y + 5,
+            class: "qubit-label",
+            "data-qubit": r,
+          });
+          labelEl.textContent = `q[${r}]`;
+          labelEl.style.cursor = "pointer";
+          labelEl.addEventListener("click", () => openBlochSphere(r));
+          svg.appendChild(labelEl);
+          // wire
+          svg.appendChild(
+            svgEl("line", {
+              x1: LABEL_W,
+              y1: y,
+              x2: totalW - 20,
+              y2: y,
+              class: "wire-line",
+            }),
+          );
+        }
+        // Classical wire
+        if (numCbits > 0) {
+          const cy = getClassicalY();
+          const labelEl = svgEl("text", {
+            x: 10,
+            y: cy + 5,
+            class: "qubit-label",
+          });
+          labelEl.textContent = "c";
+          svg.appendChild(labelEl);
+          svg.appendChild(
+            svgEl("line", {
+              x1: LABEL_W,
+              y1: cy,
+              x2: totalW - 20,
+              y2: cy,
+              class: "classical-wire",
+            }),
+          );
+        }
+
+        // Column separators (Layers mode)
+        if (mode === "layers") {
+          for (let c = 1; c < numCols; c++) {
+            const x = LABEL_W + 30 + c * COL_W;
+            svg.appendChild(
+              svgEl("line", {
+                x1: x,
+                y1: 15,
+                x2: x,
+                y2: totalH - 10,
+                class: "column-sep",
+              }),
+            );
+          }
+        }
+
+        // Drop zones
+        for (let c = 0; c < numCols; c++) {
+          for (let r = 0; r < numQubits; r++) {
+            const cx = getColX(c), wy = getWireY(r);
+            const dz = svgEl("rect", {
+              x: cx - COL_W / 2 + 4,
+              y: wy - WIRE_SPACING / 2 + 4,
+              width: COL_W - 8,
+              height: WIRE_SPACING - 8,
+              class: "drop-zone",
+              rx: 6,
+              ry: 6,
+              "data-col": c,
+              "data-row": r,
+            });
+            dz.addEventListener("dragover", (e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = "copy";
+              dz.classList.add("active");
+            });
+            dz.addEventListener(
+              "dragleave",
+              () => dz.classList.remove("active"),
+            );
+            dz.addEventListener("drop", (e) => {
+              e.preventDefault();
+              dz.classList.remove("active");
+              handleDrop(c, r);
+            });
+            svg.appendChild(dz);
+          }
+        }
+
+        // Gates
+        for (let c = 0; c < numCols; c++) {
+          for (let r = 0; r < numQubits; r++) {
+            const g = circuitGrid[c][r];
+            if (!g) continue;
+            const def = GATE_MAP[g.gate];
+            if (!def) continue;
+            const cx = getColX(c), wy = getWireY(r);
+
+            if (g.gate === "measure") {
+              drawMeasureGate(svg, cx, wy, c, r, g);
+            } else if (
+              g.gate === "cx" || g.gate === "swap" ||
+              g.gate === "rxx" || g.gate === "rzz"
+            ) {
+              drawTwoQubitGate(svg, cx, wy, c, r, g, def);
+            } else if (g.gate === "ccx") {
+              drawThreeQubitGate(svg, cx, wy, c, r, g, def);
+            } else {
+              drawSingleGate(svg, cx, wy, c, r, g, def);
+            }
+          }
+        }
+        updateCircuitInfo();
+      }
+
+      function drawSingleGate(svg, cx, wy, col, row, g, def) {
+        const grp = svgEl("g", {
+          "data-col": col,
+          "data-row": row,
+          style: "cursor:pointer",
+        });
+        grp.addEventListener("click", () => openGateEditor(col, row));
+        const rect = svgEl("rect", {
+          x: cx - GATE_SIZE / 2,
+          y: wy - GATE_SIZE / 2,
+          width: GATE_SIZE,
+          height: GATE_SIZE,
+          class: "gate-box",
+        });
+        if (g.ctrl !== undefined) {
+          rect.setAttribute("stroke", "#4a6fa5");
+          rect.setAttribute("stroke-width", "2");
+        }
+        grp.appendChild(rect);
+        const text = svgEl("text", {
+          x: cx,
+          y: wy + 5,
+          "text-anchor": "middle",
+          class: "gate-label",
+        });
+        text.textContent = def.label;
+        grp.appendChild(text);
+        // ctrl line
+        if (g.ctrl !== undefined && g.ctrl !== null) {
+          const ctrlY = getWireY(g.ctrl);
+          svg.appendChild(
+            svgEl("line", {
+              x1: cx,
+              y1: ctrlY,
+              x2: cx,
+              y2: wy - GATE_SIZE / 2,
+              class: "ctrl-line",
+            }),
+          );
+          svg.appendChild(
+            svgEl("circle", {
+              cx: cx,
+              cy: ctrlY,
+              r: 5,
+              class: "ctrl-dot",
+            }),
+          );
+        }
+        // cif annotation
+        if (g.cif !== undefined && g.cif !== null) {
+          const ann = svgEl("text", {
+            x: cx,
+            y: wy + GATE_SIZE / 2 + 12,
+            "text-anchor": "middle",
+            "font-size": "9",
+            fill: "#e53e3e",
+            "font-family": "IBM Plex Mono",
+          });
+          ann.textContent = `if(c==${g.cif})`;
+          grp.appendChild(ann);
+        }
+        svg.appendChild(grp);
+      }
+
+      function drawTwoQubitGate(svg, cx, wy, col, row, g, def) {
+        const t = g.target !== undefined
+          ? g.target
+          : (row + 1 < numQubits ? row + 1 : row - 1);
+        const ty = getWireY(t);
+        const grp = svgEl("g", {
+          "data-col": col,
+          "data-row": row,
+          style: "cursor:pointer",
+        });
+        grp.addEventListener("click", () => openGateEditor(col, row));
+        // line between
+        svg.appendChild(
+          svgEl("line", {
+            x1: cx,
+            y1: Math.min(wy, ty),
+            x2: cx,
+            y2: Math.max(wy, ty),
+            class: "ctrl-line",
+          }),
+        );
+        if (g.gate === "cx") {
+          // control dot
+          svg.appendChild(
+            svgEl("circle", { cx, cy: wy, r: 5, class: "ctrl-dot" }),
+          );
+          // target: circled plus
+          svg.appendChild(
+            svgEl("circle", {
+              cx,
+              cy: ty,
+              r: 12,
+              fill: "none",
+              stroke: "var(--ctrl-dot)",
+              "stroke-width": 1.5,
+            }),
+          );
+          svg.appendChild(
+            svgEl("line", {
+              x1: cx - 8,
+              y1: ty,
+              x2: cx + 8,
+              y2: ty,
+              stroke: "var(--ctrl-dot)",
+              "stroke-width": 1.5,
+            }),
+          );
+          svg.appendChild(
+            svgEl("line", {
+              x1: cx,
+              y1: ty - 8,
+              x2: cx,
+              y2: ty + 8,
+              stroke: "var(--ctrl-dot)",
+              "stroke-width": 1.5,
+            }),
+          );
+        } else if (g.gate === "swap") {
+          ["", ""].forEach((_, i) => {
+            const sy = i === 0 ? wy : ty;
+            svg.appendChild(
+              svgEl("line", {
+                x1: cx - 7,
+                y1: sy - 7,
+                x2: cx + 7,
+                y2: sy + 7,
+                stroke: "var(--ctrl-dot)",
+                "stroke-width": 2,
+              }),
+            );
+            svg.appendChild(
+              svgEl("line", {
+                x1: cx + 7,
+                y1: sy - 7,
+                x2: cx - 7,
+                y2: sy + 7,
+                stroke: "var(--ctrl-dot)",
+                "stroke-width": 2,
+              }),
+            );
+          });
+        } else {
+          // rxx, rzz — boxes on both
+          [wy, ty].forEach((y) => {
+            grp.appendChild(
+              svgEl("rect", {
+                x: cx - GATE_SIZE / 2,
+                y: y - GATE_SIZE / 2,
+                width: GATE_SIZE,
+                height: GATE_SIZE,
+                class: "gate-box",
+              }),
+            );
+            const lbl = svgEl("text", {
+              x: cx,
+              y: y + 5,
+              "text-anchor": "middle",
+              class: "gate-label",
+            });
+            lbl.textContent = def.label;
+            grp.appendChild(lbl);
+          });
+        }
+        grp.addEventListener("click", () => openGateEditor(col, row));
+        svg.appendChild(grp);
+      }
+
+      function drawThreeQubitGate(svg, cx, wy, col, row, g, def) {
+        const t1 = g.target !== undefined
+          ? g.target
+          : Math.min(row + 2, numQubits - 1);
+        const ctrl2 = g.ctrl2 !== undefined
+          ? g.ctrl2
+          : Math.min(row + 1, numQubits - 1);
+        const ty = getWireY(t1);
+        const c2y = getWireY(ctrl2);
+        const allY = [wy, ty, c2y];
+        svg.appendChild(
+          svgEl("line", {
+            x1: cx,
+            y1: Math.min(...allY),
+            x2: cx,
+            y2: Math.max(...allY),
+            class: "ctrl-line",
+          }),
+        );
+        svg.appendChild(
+          svgEl("circle", { cx, cy: wy, r: 5, class: "ctrl-dot" }),
+        );
+        svg.appendChild(
+          svgEl("circle", { cx, cy: c2y, r: 5, class: "ctrl-dot" }),
+        );
+        // target
+        svg.appendChild(
+          svgEl("circle", {
+            cx,
+            cy: ty,
+            r: 12,
+            fill: "none",
+            stroke: "var(--ctrl-dot)",
+            "stroke-width": 1.5,
+          }),
+        );
+        svg.appendChild(
+          svgEl("line", {
+            x1: cx - 8,
+            y1: ty,
+            x2: cx + 8,
+            y2: ty,
+            stroke: "var(--ctrl-dot)",
+            "stroke-width": 1.5,
+          }),
+        );
+        svg.appendChild(
+          svgEl("line", {
+            x1: cx,
+            y1: ty - 8,
+            x2: cx,
+            y2: ty + 8,
+            stroke: "var(--ctrl-dot)",
+            "stroke-width": 1.5,
+          }),
+        );
+        const grp = svgEl("g", { style: "cursor:pointer" });
+        grp.addEventListener("click", () => openGateEditor(col, row));
+        svg.appendChild(grp);
+      }
+
+      function drawMeasureGate(svg, cx, wy, col, row, g) {
+        const grp = svgEl("g", { style: "cursor:pointer" });
+        grp.addEventListener("click", () => openGateEditor(col, row));
+        grp.appendChild(
+          svgEl("rect", {
+            x: cx - GATE_SIZE / 2,
+            y: wy - GATE_SIZE / 2,
+            width: GATE_SIZE,
+            height: GATE_SIZE,
+            class: "gate-box",
+            fill: "#fef3c7",
+            stroke: "#f59e0b",
+          }),
+        );
+        const text = svgEl("text", {
+          x: cx,
+          y: wy + 5,
+          "text-anchor": "middle",
+          class: "gate-label",
+          fill: "#92400e",
+        });
+        text.textContent = "M";
+        grp.appendChild(text);
+        svg.appendChild(grp);
+        // arrow down to classical wire
+        if (numCbits > 0) {
+          const cy = getClassicalY();
+          svg.appendChild(
+            svgEl("line", {
+              x1: cx,
+              y1: wy + GATE_SIZE / 2,
+              x2: cx,
+              y2: cy,
+              class: "measure-arrow",
+              "stroke-dasharray": "4 2",
+            }),
+          );
+          // cbit label
+          const cbit = g.params && g.params.length > 0
+            ? g.params[0]
+            : row;
+          const ann = svgEl("text", {
+            x: cx + 6,
+            y: cy - 6,
+            "font-size": "9",
+            fill: "#e53e3e",
+            "font-family": "IBM Plex Mono",
+          });
+          ann.textContent = `c[${cbit}]`;
+          svg.appendChild(ann);
+        }
+      }
+
+      function svgEl(tag, attrs) {
+        const el = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          tag,
+        );
+        for (const [k, v] of Object.entries(attrs || {})) {
+          el.setAttribute(k, v);
+        }
+        return el;
+      }
+
+      function clearDropHighlights() {
+        document.querySelectorAll(".drop-zone.active").forEach((z) =>
+          z.classList.remove("active")
+        );
+      }
+
+      function handleDrop(col, row) {
+        if (!draggingGateId) return;
+        const def = GATE_MAP[draggingGateId];
+        if (!def) return;
+        const g = { gate: draggingGateId, params: [] };
+        if (def.isMeasure) g.params = [row < numCbits ? row : 0];
+        if (def.needsTarget) {
+          g.target = (row + 1) % numQubits;
+          if (def.qubits === 3) g.ctrl2 = (row + 1) % numQubits;
+        }
+        if (def.params.length > 0 && !def.isMeasure) {
+          g.params = def.params.map(() => Math.PI / 4);
+        }
+        circuitGrid[col][row] = g;
+        renderCircuit();
+      }
+
+      function updateCircuitInfo() {
+        let count = 0;
+        circuitGrid.forEach((col) =>
+          col.forEach((g) => {
+            if (g) count++;
+          })
+        );
+        document.getElementById("circuitInfo").textContent =
+          `${numQubits} qubits · ${numCbits} cbits · ${count} gates · ${numCols} cols`;
+      }
+
+      document.getElementById("alignMode").addEventListener(
+        "change",
+        renderCircuit,
+      );
+
+      // ══════════════════════════════════════════════
+      // GATE EDITOR MODAL
+      // ══════════════════════════════════════════════
+      function openGateEditor(col, row) {
+        const g = circuitGrid[col][row];
+        if (!g) return;
+        editingGate = { col, row };
+        const def = GATE_MAP[g.gate];
+        document.getElementById("gateModalTitle").textContent =
+          `${def.emoji} Edit ${def.label} Gate (col ${col}, q[${row}])`;
+        const body = document.getElementById("gateModalBody");
+        body.innerHTML = "";
+
+        // Ctrl
+        if (def.qubits === 1 && !def.isMeasure && g.gate !== "reset") {
+          body.innerHTML +=
+            `<div><label class="text-xs text-gray-500">Control qubit (ctrl):</label>
+      <select id="ge_ctrl" class="w-full mt-1 text-sm border rounded-lg px-2 py-1.5">
+        <option value="">None</option>
+        ${
+              Array.from({ length: numQubits }, (_, i) =>
+                `<option value="${i}" ${
+                  g.ctrl === i ? "selected" : ""
+                }>q[${i}]</option>`).join("")
+            }
+      </select></div>`;
+        }
+        // Target for multi-qubit
+        if (def.needsTarget) {
+          body.innerHTML +=
+            `<div><label class="text-xs text-gray-500">Target qubit:</label>
+      <select id="ge_target" class="w-full mt-1 text-sm border rounded-lg px-2 py-1.5">
+        ${
+              Array.from({ length: numQubits }, (_, i) =>
+                `<option value="${i}" ${
+                  g.target === i ? "selected" : ""
+                }>q[${i}]</option>`).join("")
+            }
+      </select></div>`;
+        }
+        if (def.qubits === 3) {
+          body.innerHTML +=
+            `<div><label class="text-xs text-gray-500">2nd control qubit:</label>
+      <select id="ge_ctrl2" class="w-full mt-1 text-sm border rounded-lg px-2 py-1.5">
+        ${
+              Array.from({ length: numQubits }, (_, i) =>
+                `<option value="${i}" ${
+                  g.ctrl2 === i ? "selected" : ""
+                }>q[${i}]</option>`).join("")
+            }
+      </select></div>`;
+        }
+        // Params
+        if (def.params.length > 0) {
+          def.params.forEach((pName, idx) => {
+            const val = g.params && g.params[idx] !== undefined
+              ? g.params[idx]
+              : 0;
+            body.innerHTML +=
+              `<div><label class="text-xs text-gray-500">${pName}:</label>
+        <input type="number" step="0.01" id="ge_p${idx}" value="${val}" class="w-full mt-1 text-sm border rounded-lg px-2 py-1.5 mono"></div>`;
+          });
+        }
+        // cif
+        if (!def.isMeasure) {
+          body.innerHTML +=
+            `<div><label class="text-xs text-gray-500">Classical condition if(c==?):</label>
+      <input type="text" id="ge_cif" value="${
+              g.cif !== undefined && g.cif !== null ? g.cif : ""
+            }" placeholder="empty = none" class="w-full mt-1 text-sm border rounded-lg px-2 py-1.5 mono"></div>`;
+        }
+
+        document.getElementById("gateModal").classList.add("open");
+      }
+
+      window.closeGateModal = function () {
+        document.getElementById("gateModal").classList.remove("open");
+        editingGate = null;
+      };
+
+      window.saveGateFromModal = function () {
+        if (!editingGate) return;
+        const { col, row } = editingGate;
+        const g = circuitGrid[col][row];
+        if (!g) {
+          closeGateModal();
+          return;
+        }
+        const def = GATE_MAP[g.gate];
+        // ctrl
+        const ctrlEl = document.getElementById("ge_ctrl");
+        if (ctrlEl) {
+          g.ctrl = ctrlEl.value !== ""
+            ? parseInt(ctrlEl.value)
+            : undefined;
+        }
+        // target
+        const targetEl = document.getElementById("ge_target");
+        if (targetEl) g.target = parseInt(targetEl.value);
+        // ctrl2
+        const ctrl2El = document.getElementById("ge_ctrl2");
+        if (ctrl2El) g.ctrl2 = parseInt(ctrl2El.value);
+        // params
+        if (def.params.length > 0) {
+          g.params = def.params.map((_, idx) =>
+            parseFloat(document.getElementById(`ge_p${idx}`).value) || 0
+          );
+        }
+        // cif
+        const cifEl = document.getElementById("ge_cif");
+        if (cifEl) {
+          const v = cifEl.value.trim();
+          g.cif = v !== "" ? parseInt(v) : undefined;
+        }
+        closeGateModal();
+        renderCircuit();
+      };
+
+      window.deleteGateFromModal = function () {
+        if (!editingGate) return;
+        circuitGrid[editingGate.col][editingGate.row] = null;
+        closeGateModal();
+        renderCircuit();
+      };
+
+      // ══════════════════════════════════════════════
+      // CODE EDITORS (MONACO)
+      // ══════════════════════════════════════════════
+      let monacoReady = false;
+      function ensureMonaco(cb) {
+        if (monacoReady) {
+          cb();
+          return;
+        }
+        require.config({
+          paths: {
+            vs:
+              "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs",
+          },
+        });
+        require(["vs/editor/editor.main"], () => {
+          monacoReady = true;
+          cb();
+        });
+      }
+
+      function getQuantumCodeFromCircuit() {
+        let lines = [];
+        for (let c = 0; c < numCols; c++) {
+          for (let r = 0; r < numQubits; r++) {
+            const g = circuitGrid[c][r];
+            if (!g) continue;
+            const def = GATE_MAP[g.gate];
+            if (!def) continue;
+            let opts = [];
+            if (g.ctrl !== undefined && g.ctrl !== null) {
+              opts.push(`ctrl: ${g.ctrl}`);
+            }
+            if (g.cif !== undefined && g.cif !== null) {
+              opts.push(`cif: ${g.cif}`);
+            }
+            const optsStr = opts.length > 0
+              ? `, { ${opts.join(", ")} }`
+              : "";
+
+            if (g.gate === "measure") {
+              const cbit = g.params && g.params[0] !== undefined
+                ? g.params[0]
+                : r;
+              lines.push(`  qc.measure(${r}, ${cbit}${optsStr});`);
+            } else if (g.gate === "cx") {
+              lines.push(
+                `  qc.cx(${r}, ${
+                  g.target !== undefined
+                    ? g.target
+                    : (r + 1) % numQubits
+                }${optsStr});`,
+              );
+            } else if (g.gate === "swap") {
+              lines.push(
+                `  qc.swap(${r}, ${
+                  g.target !== undefined
+                    ? g.target
+                    : (r + 1) % numQubits
+                }${optsStr});`,
+              );
+            } else if (g.gate === "ccx") {
+              const t = g.target !== undefined
+                ? g.target
+                : Math.min(r + 2, numQubits - 1);
+              const c2 = g.ctrl2 !== undefined
+                ? g.ctrl2
+                : Math.min(r + 1, numQubits - 1);
+              lines.push(`  qc.ccx(${r}, ${c2}, ${t}${optsStr});`);
+            } else if (g.gate === "rxx" || g.gate === "rzz") {
+              const theta = g.params && g.params[0] !== undefined
+                ? g.params[0]
+                : Math.PI / 4;
+              const t = g.target !== undefined
+                ? g.target
+                : (r + 1) % numQubits;
+              lines.push(
+                `  qc.${g.gate}(${theta}, ${r}, ${t}${optsStr});`,
+              );
+            } else if (def.params.length > 0 && !def.isMeasure) {
+              const pvals = (g.params || []).map((v) =>
+                v !== undefined ? v : 0
+              );
+              if (g.gate === "u") {
+                lines.push(
+                  `  qc.u(${pvals[0] || 0}, ${pvals[1] || 0}, ${
+                    pvals[2] || 0
+                  }, ${r}${optsStr});`,
+                );
+              } else if (g.gate === "rx" || g.gate === "rz") {
+                lines.push(
+                  `  qc.${g.gate}(${pvals[0] || 0}, ${r}${optsStr});`,
+                );
+              } else if (g.gate === "p") {
+                lines.push(`  qc.p(${pvals[0] || 0}, ${r}${optsStr});`);
+              }
+            } else {
+              lines.push(`  qc.${g.gate}(${r}${optsStr});`);
+            }
+          }
+        }
+        return `const code = quantum(${numQubits}, ${numCbits}, (qc) => {\n${
+          lines.join("\n")
+        }\n});`;
+      }
+
+      window.openQuantumEditor = function () {
+        ensureMonaco(() => {
+          document.getElementById("qcodeModal").classList.add("open");
+          if (!qcodeEditor) {
+            qcodeEditor = monaco.editor.create(
+              document.getElementById("qcodeEditorContainer"),
+              {
+                value: getQuantumCodeFromCircuit(),
+                language: "javascript",
+                theme: "vs",
+                minimap: { enabled: false },
+                fontSize: 13,
+                fontFamily: "IBM Plex Mono, monospace",
+                scrollBeyondLastLine: false,
+                lineNumbers: "on",
+                automaticLayout: true,
+              },
+            );
+          } else {
+            qcodeEditor.setValue(getQuantumCodeFromCircuit());
+          }
+        });
+      };
+
+      window.closeQuantumEditor = function () {
+        document.getElementById("qcodeModal").classList.remove("open");
+      };
+
+      window.applyQuantumCode = function () {
+        if (!qcodeEditor) return;
+        const code = qcodeEditor.getValue();
+        try {
+          const { quantum: q, toJSON: tj } = window._qLib;
+          const fn = new Function("quantum", code + "\nreturn code;");
+          const qcode = fn(q);
+          const json = JSON.parse(tj(qcode));
+          applyJsonToCircuit(json);
+          closeQuantumEditor();
+          renderCircuit();
+        } catch (e) {
+          alert("Error applying code: " + e.message);
+        }
+      };
+
+      function applyJsonToCircuit(json) {
+        numQubits = json.numQubits || 3;
+        numCbits = json.numClassicalBits || 0;
+        document.getElementById("numQubitsIn").value = numQubits;
+        document.getElementById("numCbitsIn").value = numCbits;
+        const instrs = json.instructions || [];
+        const maxStep = instrs.reduce(
+          (m, i) => Math.max(m, i.step || 0),
+          0,
+        );
+        numCols = Math.max(maxStep + 2, 6);
+        initGrid();
+        instrs.forEach((inst) => {
+          const col = inst.step || 0;
+          const gateName = inst.gate;
+          const targets = inst.targets || [];
+          const params = inst.params || [];
+          const ctrl = inst.ctrl;
+          const cif = inst.condition ? inst.condition.value : undefined;
+          const row = targets[0] !== undefined ? targets[0] : 0;
+          const g = { gate: gateName, params: [...params] };
+          if (ctrl !== undefined) g.ctrl = ctrl;
+          if (cif !== undefined) g.cif = cif;
+          if (targets.length >= 2) g.target = targets[1];
+          if (targets.length >= 3) g.ctrl2 = targets[1]; // for ccx
+          if (gateName === "ccx" && targets.length >= 3) {
+            g.target = targets[2];
+            g.ctrl2 = targets[1];
+          }
+          if (col < numCols && row < numQubits) {
+            circuitGrid[col][row] = g;
+          }
+        });
+      }
+
+      window.openClassicalEditor = function () {
+        ensureMonaco(() => {
+          document.getElementById("ccodeModal").classList.add("open");
+          if (!ccodeEditor) {
+            ccodeEditor = monaco.editor.create(
+              document.getElementById("ccodeEditorContainer"),
+              {
+                value: classicalCode,
+                language: "javascript",
+                theme: "vs",
+                minimap: { enabled: false },
+                fontSize: 13,
+                fontFamily: "IBM Plex Mono, monospace",
+                scrollBeyondLastLine: false,
+                lineNumbers: "on",
+                automaticLayout: true,
+              },
+            );
+          } else {
+            ccodeEditor.setValue(classicalCode);
+          }
+        });
+      };
+
+      window.closeClassicalEditor = function () {
+        document.getElementById("ccodeModal").classList.remove("open");
+      };
+
+      window.applyClassicalCode = function () {
+        if (ccodeEditor) classicalCode = ccodeEditor.getValue();
+        closeClassicalEditor();
+      };
+
+      // ══════════════════════════════════════════════
+      // BUILD QUANTUM CODE FROM GRID
+      // ══════════════════════════════════════════════
+      function buildQuantumCode(params) {
+        const { quantum: q } = window._qLib;
+        return q(numQubits, numCbits, (qc) => {
+          // register params
+          const pKeys = Object.keys(params || {});
+          const pRefs = {};
+          pKeys.forEach((k) => {
+            pRefs[k] = qc.param(k);
+          });
+
+          for (let c = 0; c < numCols; c++) {
+            for (let r = 0; r < numQubits; r++) {
+              const g = circuitGrid[c][r];
+              if (!g) continue;
+              const def = GATE_MAP[g.gate];
+              if (!def) continue;
+              const opts = {};
+              if (g.ctrl !== undefined && g.ctrl !== null) {
+                opts.ctrl = g.ctrl;
+              }
+              if (g.cif !== undefined && g.cif !== null) {
+                opts.cif = g.cif;
+              }
+
+              try {
+                if (g.gate === "measure") {
+                  const cbit = g.params && g.params[0] !== undefined
+                    ? g.params[0]
+                    : r;
+                  qc.measure(
+                    r,
+                    cbit,
+                    Object.keys(opts).length ? opts : undefined,
+                  );
+                } else if (g.gate === "cx") {
+                  qc.cx(
+                    r,
+                    g.target !== undefined
+                      ? g.target
+                      : (r + 1) % numQubits,
+                    Object.keys(opts).length ? opts : undefined,
+                  );
+                } else if (g.gate === "swap") {
+                  qc.swap(
+                    r,
+                    g.target !== undefined
+                      ? g.target
+                      : (r + 1) % numQubits,
+                    Object.keys(opts).length ? opts : undefined,
+                  );
+                } else if (g.gate === "ccx") {
+                  const t = g.target !== undefined
+                    ? g.target
+                    : Math.min(r + 2, numQubits - 1);
+                  const c2 = g.ctrl2 !== undefined
+                    ? g.ctrl2
+                    : Math.min(r + 1, numQubits - 1);
+                  qc.ccx(
+                    r,
+                    c2,
+                    t,
+                    Object.keys(opts).length ? opts : undefined,
+                  );
+                } else if (g.gate === "rxx") {
+                  qc.rxx(
+                    g.params[0] || 0,
+                    r,
+                    g.target !== undefined
+                      ? g.target
+                      : (r + 1) % numQubits,
+                    Object.keys(opts).length ? opts : undefined,
+                  );
+                } else if (g.gate === "rzz") {
+                  qc.rzz(
+                    g.params[0] || 0,
+                    r,
+                    g.target !== undefined
+                      ? g.target
+                      : (r + 1) % numQubits,
+                    Object.keys(opts).length ? opts : undefined,
+                  );
+                } else if (g.gate === "u") {
+                  qc.u(
+                    g.params[0] || 0,
+                    g.params[1] || 0,
+                    g.params[2] || 0,
+                    r,
+                    Object.keys(opts).length ? opts : undefined,
+                  );
+                } else if (g.gate === "rx") {
+                  qc.rx(
+                    g.params[0] || 0,
+                    r,
+                    Object.keys(opts).length ? opts : undefined,
+                  );
+                } else if (g.gate === "rz") {
+                  qc.rz(
+                    g.params[0] || 0,
+                    r,
+                    Object.keys(opts).length ? opts : undefined,
+                  );
+                } else if (g.gate === "p") {
+                  qc.p(
+                    g.params[0] || 0,
+                    r,
+                    Object.keys(opts).length ? opts : undefined,
+                  );
+                } else {
+                  qc[g.gate](
+                    r,
+                    Object.keys(opts).length ? opts : undefined,
+                  );
+                }
+              } catch (e) {
+                console.warn(`Gate ${g.gate} error:`, e);
+              }
+            }
+          }
+        });
+      }
+
+      // ══════════════════════════════════════════════
+      // SIMULATION
+      // ══════════════════════════════════════════════
+      window.runSimulation = function () {
+        const { simulate: sim } = window._qLib;
+        const shots = Math.max(
+          1,
+          Math.min(
+            1024,
+            parseInt(document.getElementById("numShots").value) || 100,
+          ),
+        );
+        document.getElementById("numShots").value = shots;
+
+        const btn = document.getElementById("runBtn");
+        btn.textContent = "⏳ Running...";
+        btn.disabled = true;
+
+        setTimeout(() => {
+          try {
+            // Parse classical code
+            let classicalFn;
+            try {
+              classicalFn = new Function(
+                "return (" + classicalCode + ")",
+              )();
+            } catch (e) {
+              classicalFn = (qr) => ({});
+            }
+
+            // Hybrid loop: shot by shot
+            const allResults = {};
+            let qr = {}; // initial empty simulation result
+            for (let shot = 0; shot < shots; shot++) {
+              // 1. Run classical code
+              let simParams = {};
+              try {
+                simParams = classicalFn(qr) || {};
+              } catch (e) {
+                simParams = {};
+              }
+
+              // 2. Build and run quantum code with 1 shot
+              const code = buildQuantumCode(simParams);
+              const result = sim(code, simParams, 1);
+
+              // result is percentages for 1 shot, so one key should be ~100
+              // Accumulate
+              for (const [k, v] of Object.entries(result)) {
+                allResults[k] = (allResults[k] || 0) + (v > 0 ? 1 : 0);
+              }
+              qr = result;
+            }
+
+            // Convert counts to percentages
+            const finalResult = {};
+            for (const [k, v] of Object.entries(allResults)) {
+              finalResult[k] = (v / shots) * 100;
+            }
+
+            lastSimResult = finalResult;
+            displayResults(finalResult, shots);
+          } catch (e) {
+            alert("Simulation error: " + e.message);
+            console.error(e);
+          } finally {
+            btn.textContent = "🚀 Run Simulation";
+            btn.disabled = false;
+          }
+        }, 50);
+      };
+
+      function displayResults(result, shots) {
+        const panel = document.getElementById("resultsPanel");
+        panel.classList.remove("hidden");
+        document.getElementById("resultsInfo").textContent =
+          `${shots} shots · ${Object.keys(result).length} outcomes`;
+
+        const canvas = document.getElementById("resultsChart");
+        const ctx = canvas.getContext("2d");
+        const dpr = window.devicePixelRatio || 1;
+        const w = canvas.parentElement.clientWidth - 32;
+        const h = 220;
+        canvas.width = w * dpr;
+        canvas.height = h * dpr;
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+        ctx.scale(dpr, dpr);
+
+        const entries = Object.entries(result).sort((a, b) =>
+          a[0].localeCompare(b[0])
+        );
+        const maxVal = Math.max(...entries.map((e) => e[1]), 1);
+        const barW = Math.min(50, (w - 60) / entries.length - 8);
+        const chartH = h - 50;
+        const startX = 40;
+
+        ctx.clearRect(0, 0, w, h);
+        // grid
+        ctx.strokeStyle = "#e2e8f0";
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i <= 4; i++) {
+          const y = 10 + (chartH / 4) * i;
+          ctx.beginPath();
+          ctx.moveTo(startX, y);
+          ctx.lineTo(w, y);
+          ctx.stroke();
+          ctx.fillStyle = "#a0aec0";
+          ctx.font = "10px IBM Plex Mono";
+          ctx.textAlign = "right";
+          ctx.fillText(
+            (maxVal * (4 - i) / 4).toFixed(1) + "%",
+            startX - 4,
+            y + 3,
+          );
+        }
+
+        const colors = [
+          "#4a6fa5",
+          "#6c5ce7",
+          "#e53e3e",
+          "#38a169",
+          "#d69e2e",
+          "#ed64a6",
+          "#319795",
+          "#805ad5",
+        ];
+        entries.forEach(([key, val], i) => {
+          const x = startX + 10 + i * (barW + 8);
+          const barH = (val / maxVal) * chartH;
+          const y = 10 + chartH - barH;
+          ctx.fillStyle = colors[i % colors.length];
+          ctx.beginPath();
+          const r = Math.min(4, barW / 2);
+          ctx.moveTo(x, y + r);
+          ctx.arcTo(x, y, x + r, y, r);
+          ctx.arcTo(x + barW, y, x + barW, y + r, r);
+          ctx.lineTo(x + barW, 10 + chartH);
+          ctx.lineTo(x, 10 + chartH);
+          ctx.closePath();
+          ctx.fill();
+
+          // value
+          ctx.fillStyle = "#2d3748";
+          ctx.font = "10px IBM Plex Mono";
+          ctx.textAlign = "center";
+          ctx.fillText(val.toFixed(1) + "%", x + barW / 2, y - 4);
+
+          // label
+          ctx.fillStyle = "#4a5568";
+          ctx.font = "11px IBM Plex Mono";
+          ctx.fillText("|" + key + "⟩", x + barW / 2, 10 + chartH + 16);
+        });
+
+        panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+
+      // ══════════════════════════════════════════════
+      // BLOCH SPHERE
+      // ══════════════════════════════════════════════
+      let blochDrag = false, blochTheta = 0.5, blochPhi = -0.5;
+      let blochLastX, blochLastY;
+
+      window.openBlochSphere = function (qubitIdx) {
+        document.getElementById("blochTitle").textContent =
+          `🌐 Bloch Sphere — q[${qubitIdx}]`;
+        document.getElementById("blochModal").classList.add("open");
+
+        try {
+          const { getStateVector: gsv, getQubitState: gqs } =
+            window._qLib;
+          const code = buildQuantumCode({});
+          const sv = gsv(code);
+          const qs = gqs(sv, qubitIdx, numQubits);
+
+          renderBlochSphere(
+            qs.bloch,
+            qs.spherical,
+            qs.prob0,
+            qs.prob1,
+            qs.purity,
+            qubitIdx,
+          );
+        } catch (e) {
+          console.error("Bloch error:", e);
+          renderBlochSphere(
+            { x: 0, y: 0, z: 1 },
+            { theta: 0, phi: 0, r: 1 },
+            1,
+            0,
+            1,
+            qubitIdx,
+          );
+        }
+      };
+
+      window.closeBlochModal = function () {
+        document.getElementById("blochModal").classList.remove("open");
+      };
+
+      function renderBlochSphere(bloch, sph, p0, p1, purity, qIdx) {
+        const canvas = document.getElementById("blochCanvas");
+        const ctx = canvas.getContext("2d");
+        const W = 400, H = 400, cx = W / 2, cy = H / 2, R = 140;
+
+        function project(x, y, z) {
+          const cosT = Math.cos(blochTheta),
+            sinT = Math.sin(blochTheta);
+          const cosP = Math.cos(blochPhi), sinP = Math.sin(blochPhi);
+          const x1 = x * cosP - y * sinP;
+          const y1 = x * sinP * cosT + y * cosP * cosT - z * sinT;
+          const z1 = x * sinP * sinT + y * cosP * sinT + z * cosT;
+          return { px: cx + x1 * R, py: cy - y1 * R, depth: z1 };
+        }
+
+        function draw() {
+          ctx.clearRect(0, 0, W, H);
+          // bg
+          ctx.fillStyle = "#fafbfe";
+          ctx.beginPath();
+          ctx.arc(cx, cy, R + 30, 0, Math.PI * 2);
+          ctx.fill();
+
+          // great circles
+          ctx.strokeStyle = "#d0d8e8";
+          ctx.lineWidth = 0.8;
+          drawEllipse(ctx, cx, cy, R, blochTheta, 0); // xy plane
+          drawEllipse(ctx, cx, cy, R, blochTheta, Math.PI / 2); // xz plane
+
+          // axes
+          const axes = [
+            { v: [1, 0, 0], label: "+x |+⟩", neg: "-x |−⟩" },
+            { v: [0, 1, 0], label: "+y |+i⟩", neg: "-y |−i⟩" },
+            { v: [0, 0, 1], label: "+z |0⟩", neg: "-z |1⟩" },
+          ];
+          axes.forEach((a) => {
+            const p1 = project(
+              a.v[0] * 1.2,
+              a.v[1] * 1.2,
+              a.v[2] * 1.2,
+            );
+            const p2 = project(
+              -a.v[0] * 1.2,
+              -a.v[1] * 1.2,
+              -a.v[2] * 1.2,
+            );
+            ctx.strokeStyle = "#8a9bb5";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(p2.px, p2.py);
+            ctx.lineTo(p1.px, p1.py);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            // labels
+            ctx.fillStyle = "#4a5568";
+            ctx.font = "11px IBM Plex Mono";
+            ctx.textAlign = "center";
+            ctx.fillText(a.label, p1.px, p1.py - 8);
+            ctx.fillStyle = "#a0aec0";
+            ctx.fillText(a.neg, p2.px, p2.py + 14);
+          });
+
+          // sphere outline
+          ctx.strokeStyle = "#b0bdd0";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(cx, cy, R, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // state vector
+          const sv = project(bloch.x, bloch.y, bloch.z);
+          const origin = project(0, 0, 0);
+          ctx.strokeStyle = "#e53e3e";
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(origin.px, origin.py);
+          ctx.lineTo(sv.px, sv.py);
+          ctx.stroke();
+          // dot
+          ctx.fillStyle = "#e53e3e";
+          ctx.beginPath();
+          ctx.arc(sv.px, sv.py, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#fff";
+          ctx.beginPath();
+          ctx.arc(sv.px, sv.py, 3, 0, Math.PI * 2);
+          ctx.fill();
+
+          // center dot
+          ctx.fillStyle = "#8a9bb5";
+          ctx.beginPath();
+          ctx.arc(origin.px, origin.py, 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        function drawEllipse(ctx, cx, cy, R, tilt, rot) {
+          ctx.beginPath();
+          for (let i = 0; i <= 64; i++) {
+            const a = (i / 64) * Math.PI * 2;
+            const x = Math.cos(a) * Math.cos(rot) -
+              Math.sin(a) * Math.sin(rot);
+            const y = Math.cos(a) * Math.sin(rot) +
+              Math.sin(a) * Math.cos(rot);
+            const p = project(x, y, 0);
+            if (i === 0) ctx.moveTo(p.px, p.py);
+            else ctx.lineTo(p.px, p.py);
+          }
+          ctx.stroke();
+        }
+
+        draw();
+
+        // Info
+        const info = document.getElementById("blochInfo");
+        info.innerHTML = `
+    <div class="flex flex-wrap gap-x-6 gap-y-1 justify-center">
+      <span>θ = ${(sph.theta || 0).toFixed(4)}</span>
+      <span>φ = ${(sph.phi || 0).toFixed(4)}</span>
+    </div>
+    <div class="flex flex-wrap gap-x-6 gap-y-1 justify-center">
+      <span>x = ${(bloch.x || 0).toFixed(4)}</span>
+      <span>y = ${(bloch.y || 0).toFixed(4)}</span>
+      <span>z = ${(bloch.z || 0).toFixed(4)}</span>
+    </div>
+    <div class="flex flex-wrap gap-x-6 gap-y-1 justify-center">
+      <span>P(|0⟩) = ${(p0 * 100).toFixed(1)}%</span>
+      <span>P(|1⟩) = ${(p1 * 100).toFixed(1)}%</span>
+      <span>Purity = ${purity.toFixed(4)}</span>
+    </div>
+  `;
+
+        // drag to rotate
+        canvas.onmousedown = canvas.ontouchstart = (e) => {
+          blochDrag = true;
+          const pos = getPos(e);
+          blochLastX = pos.x;
+          blochLastY = pos.y;
+          e.preventDefault();
+        };
+        canvas.onmousemove = canvas.ontouchmove = (e) => {
+          if (!blochDrag) return;
+          const pos = getPos(e);
+          blochPhi += (pos.x - blochLastX) * 0.01;
+          blochTheta += (pos.y - blochLastY) * 0.01;
+          blochTheta = Math.max(
+            -Math.PI / 2,
+            Math.min(Math.PI / 2, blochTheta),
+          );
+          blochLastX = pos.x;
+          blochLastY = pos.y;
+          draw();
+          e.preventDefault();
+        };
+        canvas.onmouseup = canvas.ontouchend = () => {
+          blochDrag = false;
+        };
+        canvas.onmouseleave = () => {
+          blochDrag = false;
+        };
+
+        function getPos(e) {
+          if (e.touches) {
+            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          }
+          return { x: e.clientX, y: e.clientY };
+        }
+      }
+
+      // ══════════════════════════════════════════════
+      // INIT
+      // ══════════════════════════════════════════════
+      initGrid();
+      renderCircuit();
+    </script>
+  </body>
+</html>
