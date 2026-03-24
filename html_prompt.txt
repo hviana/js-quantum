@@ -1,6 +1,8 @@
 Using the following library, build a web-based graphical interface similar to the IBM Quantum Platform named jsQuantum Quantum Computing Simulator.
 The graphical interface should be written in pure HTML and JavaScript, with only Tailwind CSS for styling, entirely in English, and mobile-first.
 Create an interface with light tones and use emojis instead of icons.
+Do not use icons to represent operations in the visual circuit and the operations list. To represent an operation, use only a box with its name.
+Do not invent any feature that has not been specified.
 Both the code and the interface should be in English. The result should be a single HTML file.
 The interface should be visually appealing and make extensive use of Tailwind CSS's visual features and elements.
 It should have an "Operations" menu, which includes operations such as NOT, CNOT, T, Measure, etc.
@@ -128,9 +130,12 @@ quantum code with only 1 shot with the output of the classical code,
 etc.
 
 This serves to separate what is quantum from classical, execute both in loops and simulate hybrid systems, which is why the quantum code is executed shot by shot.
+Use a global loading popup when running a simulation.
 
 There needs to be an "run simulation" button, which takes as input the number of shots from 1 to 1024.
 Clicking this button opens a graph below the circuit showing each combination of the system's qubits with their respective probabilities, that is, the average of all shots that were executed in the 1-to-1 hybrid loop.
+
+There should also be a "save" button, which generates and downloads a JSON file containing both codes, and a "load" button that loads a JSON file from the local computer.
 
 Finally, clicking on a qubit should open a popup with a 3D Bloch sphere with all its elements, including the values ​​of the two angles, the labels of the x, y, and z axes. This also includes θ, φ, |0⟩, |1⟩, |+⟩
 |−⟩, |+i⟩, |−i⟩
