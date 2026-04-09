@@ -1,0 +1,3290 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚛️ js-quantum Playground</title>
+    <style>
+      *, *::before, *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg-primary: #0a0a1a;
+        --bg-secondary: #12122a;
+        --bg-card: #1a1a3e;
+        --accent-primary: #7c3aed;
+        --accent-secondary: #06b6d4;
+        --accent-gradient: linear-gradient(135deg, #7c3aed, #06b6d4);
+        --text-primary: #e2e8f0;
+        --text-secondary: #94a3b8;
+        --success: #22c55e;
+        --error: #ef4444;
+        --border: #2d2d5e;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        font-family: system-ui, -apple-system, sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        min-height: 100vh;
+        overflow-x: hidden;
+      }
+      /* Header */
+      .header {
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+        padding: 16px 20px;
+        text-align: center;
+      }
+      .header h1 {
+        font-size: 1.6rem;
+        background: var(--accent-gradient);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+      .header p {
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        margin-top: 4px;
+      }
+      .header .experimental {
+        display: inline-block;
+        margin-top: 6px;
+        font-size: 0.7rem;
+        background: rgba(124, 58, 237, 0.2);
+        color: #a78bfa;
+        padding: 2px 8px;
+        border-radius: 4px;
+        border: 1px solid rgba(124, 58, 237, 0.3);
+      }
+      /* Toolbar */
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px 20px;
+        background: var(--bg-secondary);
+        border-bottom: 1px solid var(--border);
+        justify-content: center;
+        align-items: center;
+      }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 500;
+        cursor: pointer;
+        color: var(--text-primary);
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        transition: all 0.2s ease;
+        white-space: nowrap;
+        position: relative;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
+        border-color: var(--accent-primary);
+      }
+      .btn:active {
+        transform: translateY(0);
+      }
+      .btn-primary {
+        background: var(--accent-gradient);
+        border: none;
+        color: #fff;
+        animation: pulse-glow 2s ease-in-out infinite;
+      }
+      @keyframes pulse-glow {
+        0%, 100% {
+          box-shadow: 0 0 8px rgba(124, 58, 237, 0.4);
+        }
+        50% {
+          box-shadow:
+            0 0 20px rgba(124, 58, 237, 0.7),
+            0 0 40px rgba(6, 182, 212, 0.3);
+        }
+      }
+      .btn-primary:hover {
+        box-shadow: 0 4px 20px rgba(124, 58, 237, 0.5);
+      }
+      /* Dropdown */
+      .dropdown-wrapper {
+        position: relative;
+        display: inline-block;
+      }
+      .dropdown-panel {
+        display: none;
+        position: absolute;
+        top: calc(100% + 4px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        min-width: 240px;
+        z-index: 100;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+      }
+      .dropdown-panel.open {
+        display: block;
+      }
+      .dropdown-panel a, .dropdown-panel button {
+        display: block;
+        width: 100%;
+        padding: 10px 16px;
+        background: none;
+        border: none;
+        color: var(--text-primary);
+        font-size: 0.82rem;
+        text-align: left;
+        cursor: pointer;
+        text-decoration: none;
+        transition: background 0.15s;
+      }
+      .dropdown-panel a:hover, .dropdown-panel button:hover {
+        background: rgba(124, 58, 237, 0.15);
+      }
+      /* Main layout */
+      .main-container {
+        display: flex;
+        flex-direction: column;
+        padding: 12px;
+        gap: 12px;
+      }
+      @media (min-width: 1024px) {
+        .main-container {
+          flex-direction: row;
+          padding: 16px;
+          gap: 16px;
+          height: calc(100vh - 140px);
+        }
+        .editor-section {
+          flex: 1;
+          min-width: 0;
+        }
+        .results-section {
+          flex: 1;
+          min-width: 0;
+        }
+      }
+      .editor-section, .results-section {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      .page-footer {
+        margin: 0 12px 12px;
+        padding: 18px 20px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background:
+          radial-gradient(
+            circle at top,
+            rgba(6, 182, 212, 0.12),
+            transparent 55%
+          ),
+          linear-gradient(
+          180deg,
+          rgba(18, 18, 42, 0.98),
+          rgba(10, 10, 26, 0.98)
+        );
+        text-align: center;
+        color: var(--text-secondary);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.22);
+      }
+      .page-footer p {
+        font-size: 0.92rem;
+        line-height: 1.6;
+      }
+      .page-footer strong {
+        color: var(--text-primary);
+      }
+      .page-footer a {
+        color: var(--accent-secondary);
+        text-decoration: none;
+        font-weight: 600;
+        transition: color 0.2s ease, text-shadow 0.2s ease;
+      }
+      .page-footer a:hover {
+        color: #67e8f9;
+        text-shadow: 0 0 12px rgba(6, 182, 212, 0.35);
+      }
+      @media (min-width: 1024px) {
+        .page-footer {
+          margin: 0 16px 16px;
+        }
+      }
+      .section-title {
+        padding: 10px 16px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        border-bottom: 1px solid var(--border);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      #editor-container {
+        height: 40vh;
+      }
+      @media (min-width: 768px) {
+        #editor-container {
+          height: 45vh;
+        }
+      }
+      @media (min-width: 1024px) {
+        #editor-container {
+          height: 100%;
+        }
+      }
+      /* Results */
+      .results-content {
+        padding: 16px;
+        overflow-y: auto;
+        max-height: 50vh;
+      }
+      @media (min-width: 1024px) {
+        .results-content {
+          max-height: calc(100vh - 200px);
+        }
+      }
+      .results-placeholder {
+        text-align: center;
+        color: var(--text-secondary);
+        padding: 40px 20px;
+        font-size: 0.9rem;
+      }
+      .answer-view {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .answer-label {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-secondary);
+      }
+      .answer-pre {
+        font-family: "Courier New", monospace;
+        font-size: 0.85rem;
+        color: var(--text-primary);
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 12px 14px;
+        margin: 0;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .sort-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+      .sort-toggle input {
+        accent-color: var(--accent-primary);
+      }
+      .bar-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .bar-label {
+        font-family: "Courier New", monospace;
+        font-size: 0.82rem;
+        min-width: 70px;
+        text-align: right;
+        color: var(--accent-secondary);
+        font-weight: 600;
+      }
+      .bar-track {
+        flex: 1;
+        height: 28px;
+        background: rgba(124, 58, 237, 0.1);
+        border-radius: 6px;
+        overflow: hidden;
+        position: relative;
+      }
+      .bar-fill {
+        height: 100%;
+        background: var(--accent-gradient);
+        border-radius: 6px;
+        transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+        display: flex;
+        align-items: center;
+        padding-left: 8px;
+        min-width: fit-content;
+      }
+      .bar-value {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #fff;
+        white-space: nowrap;
+        padding-right: 8px;
+      }
+      .error-msg {
+        color: var(--error);
+        font-family: monospace;
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      /* Loading overlay */
+      .loading-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        gap: 16px;
+        background: rgba(10, 10, 26, 0.85);
+        backdrop-filter: blur(4px);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+      }
+      .loading-overlay.active {
+        opacity: 1;
+        pointer-events: all;
+      }
+      .loading-spinner {
+        font-size: 3rem;
+        animation: spin-pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes spin-pulse {
+        0% {
+          transform: scale(1) rotate(0deg);
+        }
+        50% {
+          transform: scale(1.15) rotate(180deg);
+        }
+        100% {
+          transform: scale(1) rotate(360deg);
+        }
+      }
+      .loading-text {
+        font-size: 1rem;
+        color: var(--text-secondary);
+      }
+      /* Modal */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 5000;
+        background: rgba(10, 10, 26, 0.9);
+        backdrop-filter: blur(6px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+      }
+      .modal-overlay.open {
+        opacity: 1;
+        pointer-events: all;
+      }
+      .modal {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        width: 95vw;
+        height: 90vh;
+        max-width: 1200px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        box-shadow: 0 16px 64px rgba(0, 0, 0, 0.6);
+      }
+      @media (min-width: 768px) {
+        .modal {
+          width: 90vw;
+          height: 85vh;
+        }
+      }
+      .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .modal-header h2 {
+        font-size: 1rem;
+      }
+      .modal-controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      .modal-controls .btn {
+        padding: 6px 10px;
+        font-size: 0.78rem;
+      }
+      .modal-close {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 1.4rem;
+        cursor: pointer;
+        padding: 4px 8px;
+        border-radius: 6px;
+        transition: all 0.15s;
+      }
+      .modal-close:hover {
+        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .modal-body {
+        flex: 1;
+        overflow: auto;
+        position: relative;
+        cursor: grab;
+      }
+      .modal-body:active {
+        cursor: grabbing;
+      }
+      #circuit-canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <h1>⚛️ js-quantum Playground</h1>
+      <p>Build and simulate high-level quantum algorithms in JavaScript</p>
+      <span class="experimental">⚠️ High-Level API is experimental</span>
+    </div>
+
+    <div class="toolbar">
+      <button
+        class="btn btn-primary"
+        id="btn-run"
+        title="Run code"
+        aria-label="Run code"
+      >
+        ▶️ Run
+      </button>
+      <button
+        class="btn"
+        id="btn-circuit"
+        title="View circuit diagram"
+        aria-label="View circuit diagram"
+      >
+        🔬 View Circuit
+      </button>
+      <button
+        class="btn"
+        id="btn-qasm"
+        title="Download OpenQASM 3.0"
+        aria-label="Download OpenQASM 3.0"
+      >
+        📥 Download OpenQASM
+      </button>
+      <button
+        class="btn"
+        id="btn-save"
+        title="Save code as .js file"
+        aria-label="Save code"
+      >
+        💾 Save
+      </button>
+      <button
+        class="btn"
+        id="btn-load"
+        title="Load a .js file"
+        aria-label="Load file"
+      >
+        📂 Load
+      </button>
+      <input type="file" id="file-input" accept=".js" style="display: none">
+
+      <div class="dropdown-wrapper">
+        <button
+          class="btn"
+          id="btn-examples"
+          title="Load example code"
+          aria-label="Examples"
+        >
+          📋 Examples
+        </button>
+        <div class="dropdown-panel" id="dropdown-examples">
+          <button onclick='loadExample("bell")'>🟢 Simple — Bell State</button>
+          <button onclick='loadExample("ghz")'>
+            🟡 Medium — GHZ State (3 qubits)
+          </button>
+          <button onclick='loadExample("teleport")'>
+            🔴 Complex — Quantum Teleportation
+          </button>
+          <button onclick='loadExample("hlapi")'>
+            📘 Didactic — ML Classification (High-Level API)
+          </button>
+          <button onclick='loadExample("hybrid")'>
+            🔗 Hybrid — Quantum Search → Period Finding (.pipe - High-Level API)
+          </button>
+        </div>
+      </div>
+
+      <div class="dropdown-wrapper">
+        <button
+          class="btn"
+          id="btn-hardware"
+          title="Run on quantum computer"
+          aria-label="Run on quantum computer"
+        >
+          🖥️ Run on Quantum Computer
+        </button>
+        <div class="dropdown-panel" id="dropdown-hardware">
+          <button onclick='loadExample("ibm")'>🔗 IBM Quantum Backend</button>
+          <button onclick='loadExample("qbraid")'>
+            🔗 qBraid Quantum Backend
+          </button>
+        </div>
+      </div>
+
+      <button
+        class="btn"
+        id="btn-help"
+        title="Open documentation"
+        aria-label="Help"
+      >
+        ❓ Help
+      </button>
+    </div>
+
+    <div class="main-container">
+      <div class="editor-section">
+        <div class="section-title">📝 Code Editor</div>
+        <div id="editor-container"></div>
+      </div>
+      <div class="results-section">
+        <div class="section-title">📊 Results</div>
+        <div class="results-content" id="results-content">
+          <div class="results-placeholder">
+            Press ▶️ Run to execute your quantum circuit
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="loading-overlay" id="loading-overlay">
+      <div class="loading-spinner">⚛️</div>
+      <div class="loading-text">Running quantum circuit…</div>
+    </div>
+
+    <div class="modal-overlay" id="circuit-modal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>🔬 Circuit Diagram</h2>
+          <div class="modal-controls">
+            <button
+              class="btn"
+              id="btn-zoom-in"
+              title="Zoom in"
+              aria-label="Zoom in"
+            >
+              🔍 In
+            </button>
+            <button
+              class="btn"
+              id="btn-zoom-out"
+              title="Zoom out"
+              aria-label="Zoom out"
+            >
+              🔎 Out
+            </button>
+            <button
+              class="btn"
+              id="btn-download-img"
+              title="Download as PNG"
+              aria-label="Download image"
+            >
+              📥 Image
+            </button>
+            <button
+              class="modal-close"
+              id="btn-modal-close"
+              title="Close"
+              aria-label="Close modal"
+            >
+              ✖️
+            </button>
+          </div>
+        </div>
+        <div class="modal-body" id="circuit-body">
+          <canvas id="circuit-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <footer class="page-footer">
+      <p>
+        Developed by <strong>Henrique Emanoel Viana</strong>.
+        <a
+          href="https://github.com/hviana/js-quantum"
+          target="_blank"
+          rel="noopener noreferrer"
+        >View the library on GitHub</a>
+      </p>
+    </footer>
+
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.min.js"
+    ></script>
+    <script>
+      // --- Examples ---
+      const EXAMPLES = {
+        bell: `// Simple Example: Bell State (2 qubits)
+// Creates a maximally entangled pair |00⟩ + |11⟩
+//
+// API surface used:
+//   - QuantumCircuit (src/circuit.ts)
+//   - SimulatorBackend (src/simulator.ts)
+//
+// Measurements in the new IR write into a named classical register
+// via { registerName, bitIndex } references.
+
+const qc = new QuantumCircuit();
+qc.addClassicalRegister("c", 2);
+
+qc.h(0);                                          // superposition on q0
+qc.cx(0, 1);                                      // entangle q0 with q1
+qc.measure(0, { registerName: "c", bitIndex: 0 });
+qc.measure(1, { registerName: "c", bitIndex: 1 });
+
+const backend = new SimulatorBackend({ defaultShots: 1024 });
+const executable = backend.transpileAndPackage(qc);
+const result = backend.execute(executable);
+// Expected: ~50% |00⟩, ~50% |11⟩
+
+const circuit = qc; // expose for the Circuit Diagram modal`,
+
+        ghz: `// Medium Example: GHZ State (3 qubits)
+// Creates |000⟩ + |111⟩ — a 3-qubit entangled state
+
+const qc = new QuantumCircuit();
+qc.addClassicalRegister("c", 3);
+
+qc.h(0);
+qc.cx(0, 1);
+qc.cx(0, 2);
+qc.barrier(0, 1, 2);                              // optional: visual separator
+qc.measure(0, { registerName: "c", bitIndex: 0 });
+qc.measure(1, { registerName: "c", bitIndex: 1 });
+qc.measure(2, { registerName: "c", bitIndex: 2 });
+
+const backend = new SimulatorBackend({ defaultShots: 2048 });
+const executable = backend.transpileAndPackage(qc);
+const result = backend.execute(executable);
+// Expected: ~50% |000⟩, ~50% |111⟩
+
+const circuit = qc;`,
+
+        teleport: `// Complex Example: Quantum Teleportation Protocol
+// Teleport the state of qubit 0 to qubit 2 using entanglement and
+// classically-controlled corrections. In the new API, ifTest takes a
+// ClassicalExpr (the same AST node shape used throughout the IR), so
+// conditions are composed from { kind: "identifier", name }, literals
+// and binary operators — just like OpenQASM 3 expressions.
+
+const qc = new QuantumCircuit();
+// A single 3-bit classical register keeps the histogram key compact
+// registers since results are space-separated by register).
+// Layout: c[0] = m0, c[1] = m1, c[2] = out.
+qc.addClassicalRegister("c", 3);
+
+// Step 1: Prepare an interesting state on qubit 0
+qc.h(0);
+qc.t(0);
+
+// Step 2: Create a Bell pair between q1 and q2
+qc.h(1);
+qc.cx(1, 2);
+
+// Step 3: Alice's Bell measurement on (q0, q1)
+qc.cx(0, 1);
+qc.h(0);
+qc.measure(0, { registerName: "c", bitIndex: 0 });
+qc.measure(1, { registerName: "c", bitIndex: 1 });
+
+// Step 4: Bob's classical corrections on q2
+const xCorrection = new QuantumCircuit();
+xCorrection.x(2);
+
+const zCorrection = new QuantumCircuit();
+zCorrection.z(2);
+
+// Apply X if c[1] (m1) == 1, then Z if c[0] (m0) == 1 — proper
+// teleportation order. ClassicalExpr supports bit indexing via the
+// "index" node, so we branch on individual bits of the register.
+qc.ifTest(
+  {
+    kind: "binary",
+    op: "==",
+    left: {
+      kind: "index",
+      base: { kind: "identifier", name: "c" },
+      selectors: [{ kind: "int-literal", value: 1 }],
+    },
+    right: { kind: "int-literal", value: 1 },
+  },
+  xCorrection,
+);
+qc.ifTest(
+  {
+    kind: "binary",
+    op: "==",
+    left: {
+      kind: "index",
+      base: { kind: "identifier", name: "c" },
+      selectors: [{ kind: "int-literal", value: 0 }],
+    },
+    right: { kind: "int-literal", value: 1 },
+  },
+  zCorrection,
+);
+
+qc.measure(2, { registerName: "c", bitIndex: 2 });
+
+const backend = new SimulatorBackend({ defaultShots: 4096 });
+const executable = backend.transpileAndPackage(qc);
+const result = backend.execute(executable);
+
+const circuit = qc;`,
+
+        hlapi:
+          `// Didactic Example: High-Level API — Machine Learning Classification
+//
+// The entire high-level API surface is just one entry point — \`quantum(...)\` —
+// returning a chainable QuantumTask. .run() returns a ResultHandle whose
+// .answer() is the classical result for the problem — never a raw bitstring
+// histogram.
+//
+// Algorithm covered (internally): quantum kernel estimation.
+//
+// Problem: classify flowers into two species from two numeric features
+// (petal length, petal width). The user hands in labelled training data
+// and the unknown flower; the API returns the predicted label.
+//
+// Internally a ZZ feature-map circuit encodes each data point into a
+// quantum state, and the kernel K(x1,x2) = |<phi(x1)|phi(x2)>|^2 is
+// estimated from measurement statistics. Use "View Circuit" to see the
+// kernel-estimation circuit.
+
+const training = [
+  { features: [1.4, 0.2], label: "setosa" },
+  { features: [1.3, 0.2], label: "setosa" },
+  { features: [1.5, 0.2], label: "setosa" },
+  { features: [4.7, 1.4], label: "versicolor" },
+  { features: [4.5, 1.5], label: "versicolor" },
+  { features: [4.9, 1.5], label: "versicolor" },
+];
+
+const unknownFlower = [4.6, 1.4];
+
+const handle = await quantum("classification")
+  .training_data(training)
+  .data("custom", unknownFlower)
+  .run();
+
+// .answer() returns the predicted label(s).
+const result = handle.answer(); // -> ["versicolor"]
+
+// Expose the kernel-estimation circuit so the circuit viewer can render it.
+const circuit = handle.raw().circuit;`,
+
+        hybrid:
+          `// Hybrid Computing Example: Quantum Search → Period Finding (.pipe)
+//
+// Demonstrates the .pipe() method to chain two quantum algorithms into
+// a single hybrid quantum-classical pipeline:
+//
+//   Stage 1 (Quantum): Grover's search finds the value 6 in a list.
+//   Stage 2 (Classical): The search result is used to build a modular
+//                         arithmetic function  f(x) = x mod 6.
+//   Stage 3 (Quantum): Period-finding (quantum Fourier analysis)
+//                         discovers the period of f — which equals 6.
+//   Stage 4 (Classical): A plain function wraps everything into a
+//                         human-readable summary.
+//
+// This pattern — "use one algorithm's output to configure another" —
+// is the core idea behind hybrid quantum-classical computing. Each
+// .pipe() stage receives the previous stage's result and can return
+// either a plain value (classical) or a new QuantumTask (quantum).
+//
+// Algorithms used internally:
+//   • Grover's search  (amplitude amplification)
+//   • Quantum period-finding  (QFT / Fourier analysis)
+
+const handle = await quantum("search")
+
+  // ── Stage 1: Quantum Search ──────────────────────────────────────
+  // Find the value 6 inside the list [1, 2, 3, 4, 5, 6, 7, 8].
+  // Internally this builds a Grover oracle + diffuser circuit.
+  .search_in([1, 2, 3, 4, 5, 6, 7, 8], 6)
+
+  // ── Stage 2 → 3: Pipe into Period Finding ────────────────────────
+  // .pipe() receives { answer, counts, confidence, task, fallback }.
+  // Here we take the search answer (6) and use it to define a
+  // modular function whose period we want to discover.
+  .pipe(({ answer }) => {
+    const target = answer;  // 6, found by Grover's search
+
+    // Return a NEW QuantumTask — .pipe() detects this and executes
+    // it as a full quantum stage (circuit build → simulate → measure).
+    return quantum("period_finding")
+      .function((x) => x % target);   // f(x) = x mod 6  →  period = 6
+  })
+
+  // ── Stage 4: Classical Post-Processing ───────────────────────────
+  // The period-finding result flows in as { answer: 6 }.
+  // We wrap it in a descriptive object for display.
+  .pipe(({ answer }) => {
+    return {
+      discoveredPeriod: answer,
+      meaning: "The period of f(x) = x mod " + answer + " is " + answer,
+      pipeline: "search → period_finding → summary",
+    };
+  })
+
+  .run();
+
+// The final answer is the object from the last .pipe() stage.
+const result = handle.answer();
+// result -> {
+//   discoveredPeriod: 6,
+//   meaning: "The period of f(x) = x mod 6 is 6",
+//   pipeline: "search → period_finding → summary"
+// }`,
+
+        ibm: `// Running on IBM Quantum Hardware
+// Submits a circuit through the IBM Quantum cloud REST API.
+// You need your IBM Cloud instance CRN plus either an IBM Cloud
+// API key or a short-lived IAM bearer token. Get them from
+// https://quantum.cloud.ibm.com/.
+
+const qc = new QuantumCircuit();
+qc.addClassicalRegister("c", 2);
+qc.h(0);
+qc.cx(0, 1);
+qc.measure(0, { registerName: "c", bitIndex: 0 });
+qc.measure(1, { registerName: "c", bitIndex: 1 });
+
+// Configure the IBM backend (IBMBackendConfiguration).
+// ── REQUIRED fields ──────────────────────────────────────────────
+//   name, numQubits, basisGates, couplingMap   (device description)
+//   serviceCrn, apiVersion                     (IBM Cloud routing)
+//   exactly ONE of { apiKey, bearerToken }     (authentication)
+// ── OPTIONAL fields ──────────────────────────────────────────────
+//   apiEndpoint   (defaults to the public IBM Cloud endpoint)
+//   corsProxy     (only needed when running from a browser)
+const ibmBackend = new IBMBackend({
+  // --- required: device description ---
+  name: "ibm_brisbane",
+  numQubits: 127,
+  basisGates: ["ecr", "id", "rz", "sx", "x"],
+  couplingMap: [[0, 1], [1, 0], [1, 2], [2, 1]], // truncated for readability
+
+  // --- required: IBM Cloud routing ---
+  serviceCrn: "YOUR_IBM_SERVICE_CRN_HERE",
+  apiVersion: "2025-01-01",
+
+  // --- required: authentication (pick ONE) ---
+  apiKey: "YOUR_IBM_API_KEY_HERE",              // exchanged for a bearer token
+  // bearerToken: "YOUR_IBM_BEARER_TOKEN_HERE", // or supply a short-lived token
+
+  // --- optional: override the default API endpoint ---
+  // apiEndpoint: "https://quantum.cloud.ibm.com/api/v1",
+
+  // --- optional: browser-only CORS proxy (omit in Node/Deno) ---
+  // corsProxy: {
+  //   enabled: true,
+  //   mode: "browser-only",
+  //   baseUrl: "https://proxy.corsfix.com/?",
+  // },
+});
+
+// Transpile + package, then submit and wait for completion.
+const executable = ibmBackend.transpileAndPackage(qc, 1024);
+const result = await ibmBackend.execute(executable);
+
+const circuit = executable.compiledCircuit;`,
+
+        qbraid: `// Running on qBraid Quantum Hardware
+// Submits a circuit to a qBraid device via the qBraid v2 REST API.
+// Get an API key at https://account.qbraid.com/.
+
+const qc = new QuantumCircuit();
+qc.addClassicalRegister("c", 2);
+qc.h(0);
+qc.cx(0, 1);
+qc.measure(0, { registerName: "c", bitIndex: 0 });
+qc.measure(1, { registerName: "c", bitIndex: 1 });
+
+// Configure the qBraid backend (QBraidBackendConfiguration).
+// ── REQUIRED fields ──────────────────────────────────────────────
+//   name, numQubits, basisGates, couplingMap   (device description)
+//   deviceQrn                                  (qBraid device id)
+//   apiKey                                     (authentication)
+// ── OPTIONAL fields ──────────────────────────────────────────────
+//   apiEndpoint   (defaults to the public qBraid v2 endpoint)
+//   corsProxy     (only needed when running from a browser)
+const qbraidBackend = new QBraidBackend({
+  // --- required: device description ---
+  name: "qbraid_qir_simulator",
+  numQubits: 5,
+  basisGates: ["cx", "id", "rz", "sx", "x"],
+  couplingMap: null, // simulator: all-to-all connectivity
+
+  // --- required: qBraid device + auth ---
+  deviceQrn: "qbraid_qir_simulator",
+  apiKey: "YOUR_QBRAID_API_KEY_HERE",
+
+  // --- optional: override the default API endpoint ---
+  // apiEndpoint: "https://api-v2.qbraid.com/api/v1",
+
+  // --- optional: browser-only CORS proxy (omit in Node/Deno) ---
+  // corsProxy: {
+  //   enabled: true,
+  //   mode: "browser-only",
+  //   baseUrl: "https://proxy.corsfix.com/?",
+  // },
+});
+
+const executable = qbraidBackend.transpileAndPackage(qc, 1024);
+const result = await qbraidBackend.execute(executable);
+
+const circuit = executable.compiledCircuit;`,
+      };
+
+      // --- Globals ---
+      let editor = null;
+      let currentCircuitData = null;
+      let circuitScale = 1;
+      let circuitOffsetX = 0;
+      let circuitOffsetY = 0;
+      let isDragging = false;
+      let dragStartX = 0;
+      let dragStartY = 0;
+
+      // --- Monaco Editor ---
+      require.config({
+        paths: {
+          vs:
+            "https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs",
+        },
+      });
+      require(["vs/editor/editor.main"], function () {
+        editor = monaco.editor.create(
+          document.getElementById("editor-container"),
+          {
+            value: EXAMPLES.bell,
+            language: "javascript",
+            theme: "vs-dark",
+            minimap: { enabled: false },
+            fontSize: 13,
+            lineNumbers: "on",
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            padding: { top: 10 },
+          },
+        );
+      });
+
+      // --- Loading overlay ---
+      function showLoading() {
+        document.getElementById("loading-overlay").classList.add("active");
+      }
+      function hideLoading() {
+        document.getElementById("loading-overlay").classList.remove("active");
+      }
+
+      // --- Library Cache ---
+      // Fetch the bundled ESM source from esm.sh once, rewrite its
+      // `export` declarations into plain global bindings, and reuse the
+      // result as a classic-script prelude for every worker.
+      let _libCache = null;
+      async function getLibSource() {
+        if (_libCache) return _libCache;
+        const res = await fetch(
+          "https://esm.sh/@jsr/hviana__js-quantum@1.5.4/es2022/hviana__js-quantum.mjs",
+        );
+        const src = await res.text();
+        _libCache = src.replace(/export\s*\{([^}]*)\}\s*;?/g, (_, inner) => {
+          return inner.split(",").map((entry) => {
+            const parts = entry.trim().split(/\s+as\s+/);
+            if (parts.length === 2) {
+              return `var ${parts[1].trim()} = ${parts[0].trim()};`;
+            }
+            if (parts.length === 1 && parts[0]) {
+              return `/* ${parts[0].trim()} */`;
+            }
+            return "";
+          }).join("\n");
+        }).replace(/^export\s+(const|let|var|function|class)\s+/gm, "$1 ");
+        return _libCache;
+      }
+
+      // --- Web Worker Execution ---
+      async function executeInWorker(code, needCircuit, needQasm) {
+        const libSource = await getLibSource();
+        return new Promise((resolve, reject) => {
+          const workerCode = libSource + `
+
+    self.onmessage = async function(e) {
+      try {
+        const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+        const fn = new AsyncFunction(
+          'QuantumCircuit', 'SimulatorBackend', 'IBMBackend', 'QBraidBackend',
+          'hlapi', 'quantum',
+          'Complex', 'Matrix', 'AngleExpr',
+          'Op', 'Expr', 'State', 'Dur',
+          'OpenQASMTranspiler', 'transpile', 'optimize',
+          'layoutSABRE', 'routeSABRE',
+          'decomposeKAK', 'decomposeToRzSx', 'decomposeZYZ',
+          'translateToBasis', 'unrollComposites',
+          'blochOfCircuit', 'blochFromStateVector',
+          e.data.code + '\\n;return { result: typeof result !== "undefined" ? result : null, circuit: typeof circuit !== "undefined" ? circuit : null };'
+        );
+        const output = await fn(
+          QuantumCircuit, SimulatorBackend, IBMBackend, QBraidBackend,
+          hlapi, quantum,
+          Complex, Matrix, AngleExpr,
+          Op, Expr, State, Dur,
+          OpenQASMTranspiler, transpile, optimize,
+          layoutSABRE, routeSABRE,
+          decomposeKAK, decomposeToRzSx, decomposeZYZ,
+          translateToBasis, unrollComposites,
+          blochOfCircuit, blochFromStateVector
+        );
+
+        const response = { result: output.result };
+
+        if (e.data.needCircuit && output.circuit) {
+          response.circuitData = serializeCircuit(output.circuit);
+        }
+        if (e.data.needQasm && output.circuit) {
+          const serializer = new OpenQASMTranspiler();
+          response.qasm = serializer.serialize(output.circuit);
+        }
+
+        self.postMessage({ success: true, data: response });
+      } catch (err) {
+        self.postMessage({
+          success: false,
+          error: (err && (err.stack || err.message)) || String(err),
+        });
+      }
+    };
+
+    // -----------------------------------------------------------------
+    // Circuit serialization for the visualizer.
+    //
+    // The new IR (src/types.ts → Instruction) is a tagged union over
+    // \`kind\`. This serializer flattens each instruction into the plain
+    // shape the host-side drawer expects: an \`operation\` slug, a
+    // human label, qubit/clbit lists, params, modifiers, an optional
+    // legacy-style condition (with flat-bit indices), and recursively
+    // serialized nested bodies for control-flow constructs.
+    // -----------------------------------------------------------------
+
+    function angleToString(p) {
+      if (p == null) return "";
+      if (typeof p === "number") {
+        if (Math.abs(p % 1) < 1e-9) return String(Math.round(p));
+        return p.toFixed(4).replace(/0+$/, "").replace(/\\.$/, "");
+      }
+      if (typeof p === "string") return p;
+      if (typeof p.toString === "function") {
+        try { return p.toString(); } catch (_) { return String(p); }
+      }
+      return String(p);
+    }
+
+    function buildRegisterMap(circuit) {
+      const m = new Map();
+      for (const r of (circuit.classicalRegisters || [])) m.set(r.name, r);
+      return m;
+    }
+
+    function flattenCondition(condition, regMap) {
+      if (!condition) return null;
+      // Legacy { target, value } Condition form.
+      if (condition.target) {
+        const t = condition.target;
+        const reg = regMap.get(t.registerName);
+        const value = condition.value;
+        if (!reg) return { register: [], value };
+        if (typeof t.bitIndex === "number") {
+          return { register: [reg.flatOffset + t.bitIndex], value };
+        }
+        const bits = [];
+        for (let i = 0; i < reg.size; i++) bits.push(reg.flatOffset + i);
+        return { register: bits, value };
+      }
+      // New ClassicalExpr form: walk the AST to collect the referenced
+      // classical bits and build a pretty label.
+      if (typeof condition.kind === "string") {
+        const bits = new Set();
+        collectExprClbits(condition, regMap, bits);
+        return {
+          register: [...bits].sort((a, b) => a - b),
+          label: formatClassicalExpr(condition),
+        };
+      }
+      return null;
+    }
+
+    function collectExprClbits(expr, regMap, out) {
+      if (!expr || typeof expr !== "object") return;
+      switch (expr.kind) {
+        case "identifier": {
+          const reg = regMap.get(expr.name);
+          if (reg) {
+            for (let i = 0; i < reg.size; i++) out.add(reg.flatOffset + i);
+          }
+          return;
+        }
+        case "unary":
+          collectExprClbits(expr.operand, regMap, out);
+          return;
+        case "binary":
+          collectExprClbits(expr.left, regMap, out);
+          collectExprClbits(expr.right, regMap, out);
+          return;
+        case "paren":
+          collectExprClbits(expr.inner, regMap, out);
+          return;
+        case "cast":
+          collectExprClbits(expr.value, regMap, out);
+          return;
+        case "call":
+          (expr.args || []).forEach((a) =>
+            collectExprClbits(a, regMap, out)
+          );
+          return;
+        case "index": {
+          // If the base is a register identifier and the selector is a
+          // literal int, only the single indexed bit is touched — don't
+          // fan out to the whole register.
+          const sels = expr.selectors || [];
+          if (
+            expr.base && expr.base.kind === "identifier" &&
+            sels.length === 1 && sels[0] && sels[0].kind === "int-literal"
+          ) {
+            const reg = regMap.get(expr.base.name);
+            if (reg) {
+              const bit = sels[0].value;
+              if (bit >= 0 && bit < reg.size) {
+                out.add(reg.flatOffset + bit);
+                return;
+              }
+            }
+          }
+          collectExprClbits(expr.base, regMap, out);
+          sels.forEach((i) => collectExprClbits(i, regMap, out));
+          return;
+        }
+        default:
+          return;
+      }
+    }
+
+    function formatClassicalExpr(expr) {
+      if (!expr || typeof expr !== "object") return String(expr ?? "");
+      switch (expr.kind) {
+        case "int-literal":
+        case "float-literal":
+        case "duration-literal":
+          return String(expr.value);
+        case "bool-literal":
+          return expr.value ? "true" : "false";
+        case "bitstring-literal":
+          return '"' + expr.value + '"';
+        case "imaginary-literal":
+          return String(expr.value) + "im";
+        case "builtin-constant":
+          return String(expr.name);
+        case "identifier":
+          return String(expr.name);
+        case "unary":
+          return expr.op + formatClassicalExpr(expr.operand);
+        case "binary":
+          return formatClassicalExpr(expr.left) + " " + expr.op + " " +
+            formatClassicalExpr(expr.right);
+        case "paren":
+          return "(" + formatClassicalExpr(expr.inner) + ")";
+        case "cast":
+          return formatClassicalExpr(expr.value);
+        case "call":
+          return (expr.callee || "fn") + "(" +
+            (expr.args || []).map(formatClassicalExpr).join(", ") + ")";
+        case "index":
+          return formatClassicalExpr(expr.base) + "[" +
+            (expr.selectors || []).map(formatClassicalExpr).join(", ") + "]";
+        default:
+          return expr.kind || "expr";
+      }
+    }
+
+    function serializeModifier(m) {
+      const t = m.kind || m.type || "";
+      let argument;
+      if (m.count !== undefined) argument = m.count;
+      else if (m.exponent !== undefined) argument = angleToString(m.exponent);
+      else if (m.argument !== undefined) argument = m.argument;
+      return { type: t, argument };
+    }
+
+    function serializeAnnotation(a) {
+      if (!a) return { content: "" };
+      const text = (a.keyword || "") + (a.payload ? " " + a.payload : "");
+      return { content: a.content || text };
+    }
+
+    function describeClassicalType(type) {
+      if (!type) return "var";
+      if (typeof type === "string") return type;
+      if (type.kind === "array" && type.baseType) {
+        return "array<" + describeClassicalType(type.baseType) + ">";
+      }
+      return type.kind || "var";
+    }
+
+    function serializeInstruction(inst, regMap) {
+      const kind = inst.kind || "unknown";
+
+      // Map IR kind → operation slug used by the drawer's dispatch.
+      let operation;
+      let label;
+      switch (kind) {
+        case "gate":
+          operation = (inst.name || "u").toLowerCase();
+          label = inst.name || operation;
+          break;
+        case "global-phase":
+          operation = "gphase";
+          label = "gphase";
+          break;
+        case "measure":
+          operation = "measure";
+          label = "M";
+          break;
+        case "reset":
+          operation = "reset";
+          label = "Reset";
+          break;
+        case "barrier":
+          operation = "barrier";
+          label = "barrier";
+          break;
+        case "delay":
+          operation = "delay";
+          label = "Delay";
+          break;
+        case "timed":
+          operation = "timed";
+          label = "timed";
+          break;
+        case "if":
+          operation = "if";
+          label = "if";
+          break;
+        case "for":
+          operation = "for";
+          label = "for";
+          break;
+        case "while":
+          operation = "while";
+          label = "while";
+          break;
+        case "switch":
+          operation = "switch";
+          label = "switch";
+          break;
+        case "box":
+          operation = "box";
+          label = "box";
+          break;
+        case "prepare-state":
+          operation = "prepare_state";
+          label = "PrepState";
+          break;
+        case "initialize":
+          operation = "initialize";
+          label = "Init";
+          break;
+        case "assignment":
+          operation = "classical_assign";
+          label = "assign";
+          break;
+        case "expression-statement":
+          operation = "expression_statement";
+          label = "expr";
+          break;
+        case "return":
+          operation = "return";
+          label = "return";
+          break;
+        case "break":
+          operation = "break";
+          label = "break";
+          break;
+        case "continue":
+          operation = "continue";
+          label = "continue";
+          break;
+        case "end":
+          operation = "end";
+          label = "end";
+          break;
+        case "pragma":
+          operation = "pragma";
+          label = (inst.payload && inst.payload.text) || inst.name || "pragma";
+          break;
+        case "annotation-statement":
+          operation = "annotation";
+          label = (inst.payload && inst.payload.keyword) || "annotation";
+          break;
+        case "comment":
+          operation = "comment";
+          label = "//";
+          break;
+        case "gate-definition":
+          operation = "gate_definition";
+          label = inst.name || "gate";
+          break;
+        case "subroutine-definition":
+          operation = "subroutine_definition";
+          label = inst.name || "def";
+          break;
+        case "extern-declaration":
+          operation = "extern_declaration";
+          label = inst.name || "extern";
+          break;
+        case "classical-declaration":
+        case "const-declaration":
+        case "input-declaration":
+        case "output-declaration":
+          operation = "classical_declaration";
+          label = inst.name || "var";
+          break;
+        case "alias-declaration":
+          operation = "alias_declaration";
+          label = inst.name || "alias";
+          break;
+        case "legacy-register-declaration":
+          operation = "legacy_register_declaration";
+          label = inst.name || "reg";
+          break;
+        default:
+          operation = String(kind).replace(/-/g, "_");
+          label = inst.name || operation;
+      }
+
+      const si = {
+        kind,
+        operation,
+        label,
+        name: label,
+        qubits: inst.qubits ? [...inst.qubits] : [],
+        clbits: inst.clbits ? [...inst.clbits] : [],
+        params: (inst.parameters || []).map(angleToString),
+      };
+
+      if (inst.modifiers && inst.modifiers.length > 0) {
+        si.modifiers = inst.modifiers.map(serializeModifier);
+      }
+      if (inst.annotations && inst.annotations.length > 0) {
+        si.annotations = inst.annotations.map(serializeAnnotation);
+      }
+      if (inst.condition) {
+        si.condition = flattenCondition(inst.condition, regMap);
+      }
+
+      // Recursively serialize nested bodies for control-flow / box.
+      const p = inst.payload || null;
+      if (p && typeof p === "object") {
+        if (kind === "if") {
+          si.bodies = [serializeCircuit(p.trueBody)];
+          if (p.falseBody) si.bodies.push(serializeCircuit(p.falseBody));
+          if (p.condition) {
+            si.condition = flattenCondition(p.condition, regMap);
+          }
+        } else if (kind === "while" || kind === "for" || kind === "box") {
+          if (p.body) si.bodies = [serializeCircuit(p.body)];
+          if (kind === "while" && p.condition) {
+            si.condition = flattenCondition(p.condition, regMap);
+          }
+        } else if (kind === "switch") {
+          si.bodies = [];
+          for (const c of (p.cases || [])) {
+            si.bodies.push(serializeCircuit(c.body));
+          }
+          if (p.defaultBody) si.bodies.push(serializeCircuit(p.defaultBody));
+        }
+      }
+
+      // Surface initial-value text for declarations so the legend can
+      // show something meaningful.
+      if (
+        kind === "classical-declaration" || kind === "const-declaration" ||
+        kind === "input-declaration" || kind === "output-declaration"
+      ) {
+        si.declType = describeClassicalType(p && p.type);
+      }
+
+      return si;
+    }
+
+    function serializeCircuit(circuit) {
+      if (!circuit) return { instructions: [], numQubits: 0, numClbits: 0 };
+      const regMap = buildRegisterMap(circuit);
+      const instructions = (circuit.instructions || [])
+        .map((i) => serializeInstruction(i, regMap));
+
+      const data = {
+        instructions,
+        numQubits: circuit.numQubits || 0,
+        numClbits: circuit.numClbits || 0,
+        classicalRegisters: (circuit.classicalRegisters || []).map((r) => ({
+          name: r.name,
+          flatOffset: r.flatOffset,
+          size: r.size,
+        })),
+      };
+
+      // Reconstruct legend buckets from the instruction stream.
+      const gateDefinitions = [];
+      const subroutineDefinitions = [];
+      const externDeclarations = [];
+      const classicalVariables = [];
+      for (const i of (circuit.instructions || [])) {
+        const p = i.payload || {};
+        if (i.kind === "gate-definition") {
+          gateDefinitions.push({
+            name: i.name || "gate",
+            params: (p.params || []).slice(),
+            qubits: (p.qubits || []).slice(),
+          });
+        } else if (i.kind === "subroutine-definition") {
+          subroutineDefinitions.push({
+            name: i.name || "def",
+            params: (p.params || []).map((pp) => pp && pp.name ? pp.name : String(pp)),
+          });
+        } else if (i.kind === "extern-declaration") {
+          externDeclarations.push({ name: i.name || "extern" });
+        } else if (
+          i.kind === "classical-declaration" ||
+          i.kind === "const-declaration" ||
+          i.kind === "input-declaration" ||
+          i.kind === "output-declaration"
+        ) {
+          const modifier = i.kind === "const-declaration"
+            ? "const"
+            : i.kind === "input-declaration"
+              ? "input"
+              : i.kind === "output-declaration"
+                ? "output"
+                : "";
+          classicalVariables.push({
+            name: i.name || "var",
+            type: describeClassicalType(p.type),
+            modifier,
+          });
+        }
+      }
+      if (gateDefinitions.length) data.gateDefinitions = gateDefinitions;
+      if (subroutineDefinitions.length) data.subroutineDefinitions = subroutineDefinitions;
+      if (externDeclarations.length) data.externDeclarations = externDeclarations;
+      if (classicalVariables.length) data.classicalVariables = classicalVariables;
+
+      return data;
+    }
+    `;
+          const blob = new Blob([workerCode], {
+            type: "application/javascript",
+          });
+          const url = URL.createObjectURL(blob);
+          const worker = new Worker(url);
+
+          const timeout = setTimeout(() => {
+            worker.terminate();
+            URL.revokeObjectURL(url);
+            reject(new Error("Execution timed out after 60 seconds"));
+          }, 60000);
+
+          worker.onmessage = (e) => {
+            clearTimeout(timeout);
+            worker.terminate();
+            URL.revokeObjectURL(url);
+            if (e.data.success) resolve(e.data.data);
+            else reject(new Error(e.data.error));
+          };
+          worker.onerror = (e) => {
+            clearTimeout(timeout);
+            worker.terminate();
+            URL.revokeObjectURL(url);
+            reject(new Error(e.message || "Worker error"));
+          };
+          worker.postMessage({ code, needCircuit, needQasm });
+        });
+      }
+
+      // --- Results rendering ---
+      function renderResults(result) {
+        const container = document.getElementById("results-content");
+        if (
+          !result || typeof result !== "object" ||
+          Object.keys(result).length === 0
+        ) {
+          container.innerHTML =
+            '<div class="results-placeholder">No measurement results returned. Make sure your code assigns to <code>result</code>.</div>';
+          return;
+        }
+
+        let entries = Object.entries(result);
+        const total = entries.reduce((s, [, v]) => s + v, 0);
+        const maxVal = Math.max(...entries.map(([, v]) => v));
+
+        let sortChecked = false;
+        const html = `
+    <label class="sort-toggle">
+      <input type="checkbox" id="sort-toggle" onchange="toggleSort()">
+      Sort by highest probability
+    </label>
+    <div id="bars-container"></div>
+  `;
+        container.innerHTML = html;
+        renderBars(entries, total, maxVal, false);
+      }
+
+      function renderBars(entries, total, maxVal, sorted) {
+        if (sorted) entries.sort((a, b) => b[1] - a[1]);
+        else entries.sort((a, b) => a[0].localeCompare(b[0]));
+
+        const barsContainer = document.getElementById("bars-container");
+        barsContainer.innerHTML = entries.map(([state, value]) => {
+          const pct = total > 0 ? (value / total * 100) : 0;
+          const width = maxVal > 0 ? (value / maxVal * 100) : 0;
+          return `<div class="bar-row">
+      <span class="bar-label">|${state}⟩</span>
+      <div class="bar-track">
+        <div class="bar-fill" style="width: 0%">
+          <span class="bar-value">${pct.toFixed(1)}%</span>
+        </div>
+      </div>
+    </div>`;
+        }).join("");
+
+        // Animate bars
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const fills = barsContainer.querySelectorAll(".bar-fill");
+            entries.forEach(([, value], i) => {
+              const width = maxVal > 0 ? (value / maxVal * 100) : 0;
+              fills[i].style.width = width + "%";
+            });
+          });
+        });
+      }
+
+      window._lastEntries = null;
+      window._lastTotal = 0;
+      window._lastMaxVal = 0;
+
+      function toggleSort() {
+        if (!window._lastEntries) return;
+        const sorted = document.getElementById("sort-toggle").checked;
+        renderBars(
+          [...window._lastEntries],
+          window._lastTotal,
+          window._lastMaxVal,
+          sorted,
+        );
+      }
+
+      // A "histogram" result is a plain object whose values are all finite
+      // numbers — the legacy `backend.execute(...)` shape: bitstring → count.
+      // The hlapi `ResultHandle.answer()` can return any JavaScript value
+      // (an object, array, number, string, ...), which we render as
+      // pretty-printed JSON instead.
+      function isHistogramResult(r) {
+        if (!r || typeof r !== "object" || Array.isArray(r)) return false;
+        const entries = Object.entries(r);
+        if (entries.length === 0) return false;
+        return entries.every(([, v]) => typeof v === "number" && isFinite(v));
+      }
+
+      function formatAnswer(value) {
+        if (value === null) return "null";
+        if (value === undefined) return "undefined";
+        if (typeof value === "string") return value;
+        if (
+          typeof value === "number" || typeof value === "bigint" ||
+          typeof value === "boolean"
+        ) {
+          return String(value);
+        }
+        try {
+          return JSON.stringify(
+            value,
+            (_k, v) => typeof v === "bigint" ? v.toString() + "n" : v,
+            2,
+          );
+        } catch (_) {
+          return String(value);
+        }
+      }
+
+      function escapeHtml(s) {
+        return String(s)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
+
+      function renderAnswerValue(value) {
+        const container = document.getElementById("results-content");
+        const text = formatAnswer(value);
+        container.innerHTML = `
+    <div class="answer-view">
+      <div class="answer-label">Classical answer</div>
+      <pre class="answer-pre">${escapeHtml(text)}</pre>
+    </div>
+  `;
+      }
+
+      function renderResults(result) {
+        const container = document.getElementById("results-content");
+        if (result === null || result === undefined) {
+          container.innerHTML =
+            '<div class="results-placeholder">No result returned. Make sure your code assigns to <code>result</code>.</div>';
+          return;
+        }
+
+        // Non-histogram values (hlapi `.answer()` results — objects, arrays,
+        // primitives, ...): pretty-print as JSON.
+        if (!isHistogramResult(result)) {
+          window._lastEntries = null;
+          renderAnswerValue(result);
+          return;
+        }
+
+        const entries = Object.entries(result);
+        const total = entries.reduce((s, [, v]) => s + v, 0);
+        const maxVal = Math.max(...entries.map(([, v]) => v));
+        window._lastEntries = entries;
+        window._lastTotal = total;
+        window._lastMaxVal = maxVal;
+
+        container.innerHTML = `
+    <label class="sort-toggle">
+      <input type="checkbox" id="sort-toggle" onchange="toggleSort()">
+      Sort by highest probability
+    </label>
+    <div id="bars-container"></div>
+  `;
+        renderBars([...entries], total, maxVal, false);
+      }
+
+      function showError(msg) {
+        document.getElementById("results-content").innerHTML =
+          `<div class="error-msg">❌ ${msg}</div>`;
+      }
+
+      // --- Button handlers ---
+      // Run
+      document.getElementById("btn-run").addEventListener("click", async () => {
+        if (!editor) return;
+        showLoading();
+        try {
+          const data = await executeInWorker(editor.getValue(), false, false);
+          hideLoading();
+          renderResults(data.result);
+        } catch (err) {
+          hideLoading();
+          showError(err.message);
+        }
+      });
+
+      // View Circuit
+      document.getElementById("btn-circuit").addEventListener(
+        "click",
+        async () => {
+          if (!editor) return;
+          showLoading();
+          try {
+            const data = await executeInWorker(editor.getValue(), true, false);
+            hideLoading();
+            if (data.circuitData) {
+              currentCircuitData = data.circuitData;
+              circuitScale = 1;
+              circuitOffsetX = 0;
+              circuitOffsetY = 0;
+              openCircuitModal();
+            } else {
+              showError(
+                'No circuit found. Make sure your code defines a "circuit" variable.',
+              );
+            }
+          } catch (err) {
+            hideLoading();
+            showError(err.message);
+          }
+        },
+      );
+
+      // Download OpenQASM
+      document.getElementById("btn-qasm").addEventListener(
+        "click",
+        async () => {
+          if (!editor) return;
+          showLoading();
+          try {
+            const data = await executeInWorker(editor.getValue(), false, true);
+            hideLoading();
+            if (data.qasm) {
+              downloadFile(data.qasm, "quantum-circuit.qasm", "text/plain");
+            } else {
+              showError(
+                'No circuit found. Make sure your code defines a "circuit" variable.',
+              );
+            }
+          } catch (err) {
+            hideLoading();
+            showError(err.message);
+          }
+        },
+      );
+
+      // Save
+      document.getElementById("btn-save").addEventListener("click", () => {
+        if (!editor) return;
+        downloadFile(
+          editor.getValue(),
+          "quantum-circuit.js",
+          "application/javascript",
+        );
+      });
+
+      // Load
+      document.getElementById("btn-load").addEventListener("click", () => {
+        document.getElementById("file-input").click();
+      });
+      document.getElementById("file-input").addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (!file || !editor) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          editor.setValue(ev.target.result);
+        };
+        reader.readAsText(file);
+        e.target.value = "";
+      });
+
+      // Help
+      document.getElementById("btn-help").addEventListener("click", () => {
+        window.open("https://jsr.io/@hviana/js-quantum", "_blank");
+      });
+
+      // Examples dropdown
+      document.getElementById("btn-examples").addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeAllDropdowns();
+        document.getElementById("dropdown-examples").classList.toggle("open");
+      });
+      document.getElementById("btn-hardware").addEventListener("click", (e) => {
+        e.stopPropagation();
+        closeAllDropdowns();
+        document.getElementById("dropdown-hardware").classList.toggle("open");
+      });
+
+      function closeAllDropdowns() {
+        document.querySelectorAll(".dropdown-panel").forEach((d) =>
+          d.classList.remove("open")
+        );
+      }
+      document.addEventListener("click", closeAllDropdowns);
+
+      function loadExample(name) {
+        if (editor && EXAMPLES[name]) {
+          editor.setValue(EXAMPLES[name]);
+        }
+        closeAllDropdowns();
+      }
+
+      // --- File download helper ---
+      function downloadFile(content, filename, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+
+      // --- Circuit Modal ---
+      function openCircuitModal() {
+        document.getElementById("circuit-modal").classList.add("open");
+        drawCircuit();
+      }
+
+      function closeCircuitModal() {
+        document.getElementById("circuit-modal").classList.remove("open");
+      }
+
+      document.getElementById("btn-modal-close").addEventListener(
+        "click",
+        closeCircuitModal,
+      );
+      document.getElementById("circuit-modal").addEventListener(
+        "click",
+        (e) => {
+          if (e.target === e.currentTarget) closeCircuitModal();
+        },
+      );
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeCircuitModal();
+      });
+
+      // Zoom
+      document.getElementById("btn-zoom-in").addEventListener("click", () => {
+        circuitScale *= 1.4;
+        drawCircuit();
+      });
+      document.getElementById("btn-zoom-out").addEventListener("click", () => {
+        circuitScale /= 1.4;
+        if (circuitScale < 0.2) circuitScale = 0.2;
+        drawCircuit();
+      });
+
+      // Pan (mouse)
+      const circuitBody = document.getElementById("circuit-body");
+      circuitBody.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        dragStartX = e.clientX - circuitOffsetX;
+        dragStartY = e.clientY - circuitOffsetY;
+      });
+      window.addEventListener("mousemove", (e) => {
+        if (!isDragging) return;
+        circuitOffsetX = e.clientX - dragStartX;
+        circuitOffsetY = e.clientY - dragStartY;
+        drawCircuit();
+      });
+      window.addEventListener("mouseup", () => {
+        isDragging = false;
+      });
+
+      // Pan (touch)
+      let touchStartX = 0, touchStartY = 0, touchOffsetX = 0, touchOffsetY = 0;
+      circuitBody.addEventListener("touchstart", (e) => {
+        if (e.touches.length === 1) {
+          isDragging = true;
+          touchStartX = e.touches[0].clientX - circuitOffsetX;
+          touchStartY = e.touches[0].clientY - circuitOffsetY;
+        }
+      }, { passive: true });
+      circuitBody.addEventListener("touchmove", (e) => {
+        if (!isDragging || e.touches.length !== 1) return;
+        circuitOffsetX = e.touches[0].clientX - touchStartX;
+        circuitOffsetY = e.touches[0].clientY - touchStartY;
+        drawCircuit();
+      }, { passive: true });
+      circuitBody.addEventListener("touchend", () => {
+        isDragging = false;
+      });
+
+      // Mouse wheel zoom
+      circuitBody.addEventListener("wheel", (e) => {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.1 : 0.9;
+        circuitScale *= factor;
+        if (circuitScale < 0.2) circuitScale = 0.2;
+        if (circuitScale > 5) circuitScale = 5;
+        drawCircuit();
+      }, { passive: false });
+
+      // Download image
+      document.getElementById("btn-download-img").addEventListener(
+        "click",
+        () => {
+          if (!currentCircuitData) return;
+          const tempCanvas = document.createElement("canvas");
+          const dims = getCircuitDimensions(currentCircuitData);
+          tempCanvas.width = dims.width * 2;
+          tempCanvas.height = dims.height * 2;
+          const ctx = tempCanvas.getContext("2d");
+          ctx.scale(2, 2);
+          drawCircuitOnCanvas(ctx, currentCircuitData, 1, 0, 0);
+          tempCanvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "quantum-circuit.png";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          });
+        },
+      );
+
+      // --- Circuit Drawing ---
+      const GATE_W = 48;
+      const GATE_H = 36;
+      const WIRE_SPACING = 50;
+      const SLOT_WIDTH = 70;
+      const PADDING_LEFT = 80;
+      const PADDING_TOP = 40;
+      const PADDING_RIGHT = 40;
+      const PADDING_BOTTOM = 40;
+
+      function getLegendHeight(circuitData) {
+        let lines = 0;
+        if (
+          circuitData.gateDefinitions && circuitData.gateDefinitions.length > 0
+        ) lines += circuitData.gateDefinitions.length + 1;
+        if (
+          circuitData.classicalVariables &&
+          circuitData.classicalVariables.length > 0
+        ) lines += Math.min(circuitData.classicalVariables.length, 4) + 1;
+        if (
+          circuitData.subroutineDefinitions &&
+          circuitData.subroutineDefinitions.length > 0
+        ) lines += circuitData.subroutineDefinitions.length + 1;
+        if (
+          circuitData.externDeclarations &&
+          circuitData.externDeclarations.length > 0
+        ) lines += circuitData.externDeclarations.length + 1;
+        return lines > 0 ? lines * 16 + 16 : 0;
+      }
+
+      function getCircuitDimensions(circuitData) {
+        const slots = assignTimeSlots(circuitData);
+        const numSlots = Math.max(1, ...slots.map((s) => s.slot + 1));
+        const totalQubits = circuitData.numQubits || 1;
+        const totalClbits = circuitData.numClbits || 0;
+        const totalWires = totalQubits + totalClbits;
+        const legendH = getLegendHeight(circuitData);
+        return {
+          width: PADDING_LEFT + numSlots * SLOT_WIDTH + PADDING_RIGHT,
+          height: PADDING_TOP + totalWires * WIRE_SPACING + PADDING_BOTTOM +
+            legendH,
+        };
+      }
+
+      // Holds the classical register layout for the circuit currently
+      // being drawn, so condition labels can refer to the original
+      // register names rather than a flat `c{index}` fallback.
+      let currentClassicalRegisters = [];
+
+      function formatClbitLabel(globalBit, registers) {
+        const regs = registers || [];
+        for (const r of regs) {
+          const start = r.flatOffset || 0;
+          const end = start + (r.size || 0);
+          if (globalBit >= start && globalBit < end) {
+            const local = globalBit - start;
+            if ((r.size || 0) <= 1) return r.name;
+            return `${r.name}[${local}]`;
+          }
+        }
+        return `c${globalBit}`;
+      }
+
+      function normalizeClassicalRegister(register) {
+        if (Array.isArray(register)) {
+          return register.filter((bit) => Number.isInteger(bit));
+        }
+        return Number.isInteger(register) ? [register] : [];
+      }
+
+      function getInstructionConditions(inst) {
+        const conditions = [];
+        if (Array.isArray(inst.conditions)) {
+          for (const condition of inst.conditions) {
+            if (condition) conditions.push(condition);
+          }
+        }
+        if (inst.condition) {
+          conditions.push(inst.condition);
+        }
+        return conditions;
+      }
+
+      function mergeCircuitUsage(target, source) {
+        source.qubits.forEach((q) => target.qubits.add(q));
+        source.clbits.forEach((c) => target.clbits.add(c));
+      }
+
+      function collectInstructionUsage(inst) {
+        const usage = { qubits: new Set(), clbits: new Set() };
+        (inst.qubits || []).forEach((q) => usage.qubits.add(q));
+        (inst.clbits || []).forEach((c) => usage.clbits.add(c));
+        for (const condition of getInstructionConditions(inst)) {
+          normalizeClassicalRegister(condition.register).forEach((bit) =>
+            usage.clbits.add(bit)
+          );
+        }
+        if (inst.bodies) {
+          for (const body of inst.bodies) {
+            mergeCircuitUsage(usage, collectCircuitUsage(body));
+          }
+        }
+        return usage;
+      }
+
+      function collectCircuitUsage(circuitData) {
+        const usage = { qubits: new Set(), clbits: new Set() };
+        if (!circuitData || !circuitData.instructions) return usage;
+        for (const inst of circuitData.instructions) {
+          mergeCircuitUsage(usage, collectInstructionUsage(inst));
+        }
+        return usage;
+      }
+
+      function sortNumeric(values) {
+        return [...values].sort((a, b) => a - b);
+      }
+
+      function isControlFlowOperation(operation) {
+        return [
+          "if_test",
+          "if",
+          "for_loop",
+          "for",
+          "while_loop",
+          "while",
+          "switch",
+          "box",
+        ].includes((operation || "").toLowerCase());
+      }
+
+      function formatConditionLabel(condition) {
+        if (!condition) return "";
+        if (typeof condition.label === "string" && condition.label) {
+          return condition.label;
+        }
+        const bits = normalizeClassicalRegister(condition.register);
+        if (bits.length === 0) return `=${condition.value}`;
+        const regs = currentClassicalRegisters || [];
+        if (bits.length === 1) {
+          return `${formatClbitLabel(bits[0], regs)}=${condition.value}`;
+        }
+        // If all bits belong to the same register and cover it
+        // contiguously, display the register name directly.
+        for (const r of regs) {
+          const start = r.flatOffset || 0;
+          const size = r.size || 0;
+          if (bits.length === size) {
+            let match = true;
+            for (let i = 0; i < size; i++) {
+              if (bits[i] !== start + i) {
+                match = false;
+                break;
+              }
+            }
+            if (match) return `${r.name}=${condition.value}`;
+          }
+        }
+        return `[${
+          bits.map((b) => formatClbitLabel(b, regs)).join(",")
+        }]=${condition.value}`;
+      }
+
+      function formatControlFlowLabel(inst) {
+        const operation = (inst.operation || inst.name || "").toLowerCase();
+        if (operation === "if_test" || operation === "if") {
+          return `if ${formatConditionLabel(inst.condition)}`.trim();
+        }
+        if (operation === "while_loop" || operation === "while") {
+          return `while ${formatConditionLabel(inst.condition)}`.trim();
+        }
+        if (operation === "for_loop" || operation === "for") {
+          const indexSet = Array.isArray(inst.indexSet) ? inst.indexSet : [];
+          return indexSet.length > 0 ? `for ${indexSet.length}x` : "for";
+        }
+        if (operation === "switch") {
+          const cases = Array.isArray(inst.caseValues)
+            ? inst.caseValues.length
+            : (Array.isArray(inst.bodies) ? inst.bodies.length : 0);
+          return cases > 0 ? `switch ${cases}` : "switch";
+        }
+        if (operation === "box") {
+          return "box";
+        }
+        return inst.label || inst.name || inst.operation || "flow";
+      }
+
+      // Expand simple `ifTest(...)` blocks into conditioned operations so
+      // classically controlled corrections appear in the diagram.
+      function expandCircuitForDrawing(circuitData, inheritedConditions = []) {
+        const instructions = [];
+        if (!circuitData || !circuitData.instructions) return instructions;
+
+        for (const rawInst of circuitData.instructions) {
+          const operation = (rawInst.operation || rawInst.name || "")
+            .toLowerCase();
+          const ownConditions = getInstructionConditions(rawInst);
+          const nextConditions = [...inheritedConditions, ...ownConditions];
+
+          if (
+            (operation === "if_test" || operation === "if") &&
+            rawInst.bodies &&
+            rawInst.bodies[0] &&
+            !rawInst.bodies[1]
+          ) {
+            instructions.push(
+              ...expandCircuitForDrawing(rawInst.bodies[0], nextConditions),
+            );
+            continue;
+          }
+
+          if (isControlFlowOperation(operation)) {
+            const usage = collectInstructionUsage({
+              ...rawInst,
+              conditions: nextConditions,
+              condition: undefined,
+            });
+            instructions.push({
+              ...rawInst,
+              operation,
+              qubits: sortNumeric(usage.qubits),
+              clbits: sortNumeric(usage.clbits),
+              condition: undefined,
+              conditions: nextConditions,
+              renderLabel: formatControlFlowLabel(rawInst),
+            });
+            continue;
+          }
+
+          // Statement-like nodes with no quantum operands still deserve
+          // a time slot — promote them onto qubit 0 so the drawer can
+          // place a small marker box for them.
+          if (
+            operation === "pragma" ||
+            operation === "classical_assign" ||
+            operation === "expression_statement" ||
+            operation === "annotation" ||
+            operation === "return" ||
+            operation === "break" ||
+            operation === "continue" ||
+            operation === "end" ||
+            operation === "gphase"
+          ) {
+            const qubits = rawInst.qubits && rawInst.qubits.length > 0
+              ? rawInst.qubits
+              : [0];
+            instructions.push({
+              ...rawInst,
+              operation,
+              qubits,
+              conditions: nextConditions,
+            });
+            continue;
+          }
+
+          // Pure metadata declarations live in the legend, not on a wire.
+          if (
+            operation === "gate_definition" ||
+            operation === "subroutine_definition" ||
+            operation === "extern_declaration" ||
+            operation === "classical_declaration" ||
+            operation === "alias_declaration" ||
+            operation === "legacy_register_declaration" ||
+            operation === "comment"
+          ) {
+            continue;
+          }
+
+          instructions.push({
+            ...rawInst,
+            operation,
+            conditions: nextConditions,
+          });
+        }
+
+        return instructions;
+      }
+
+      function getInstructionWireIndices(inst, numQubits) {
+        const wires = new Set();
+        (inst.qubits || []).forEach((q) => wires.add(q));
+        (inst.clbits || []).forEach((c) => wires.add(c + numQubits));
+        for (const condition of getInstructionConditions(inst)) {
+          normalizeClassicalRegister(condition.register).forEach((bit) =>
+            wires.add(bit + numQubits)
+          );
+        }
+        return sortNumeric(wires);
+      }
+
+      function assignTimeSlots(circuitData) {
+        const numQubits = circuitData.numQubits || 1;
+        const nextSlot = new Array(numQubits + (circuitData.numClbits || 0))
+          .fill(0);
+        const result = [];
+        const drawableInstructions = expandCircuitForDrawing(circuitData);
+
+        for (const inst of drawableInstructions) {
+          const allBits = getInstructionWireIndices(inst, numQubits);
+          if (allBits.length === 0) continue;
+
+          const slot = Math.max(...allBits.map((b) => nextSlot[b] || 0));
+          result.push({ ...inst, slot });
+
+          for (const b of allBits) {
+            nextSlot[b] = slot + 1;
+          }
+        }
+        return result;
+      }
+
+      function drawCircuit() {
+        if (!currentCircuitData) return;
+        const canvas = document.getElementById("circuit-canvas");
+        const body = document.getElementById("circuit-body");
+        const dims = getCircuitDimensions(currentCircuitData);
+
+        canvas.width = Math.max(body.clientWidth, dims.width * circuitScale) *
+          window.devicePixelRatio;
+        canvas.height =
+          Math.max(body.clientHeight, dims.height * circuitScale) *
+          window.devicePixelRatio;
+        canvas.style.width =
+          Math.max(body.clientWidth, dims.width * circuitScale) + "px";
+        canvas.style.height =
+          Math.max(body.clientHeight, dims.height * circuitScale) + "px";
+
+        const ctx = canvas.getContext("2d");
+        ctx.setTransform(
+          window.devicePixelRatio,
+          0,
+          0,
+          window.devicePixelRatio,
+          0,
+          0,
+        );
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawCircuitOnCanvas(
+          ctx,
+          currentCircuitData,
+          circuitScale,
+          circuitOffsetX,
+          circuitOffsetY,
+        );
+      }
+
+      function drawCircuitOnCanvas(ctx, circuitData, scale, offsetX, offsetY) {
+        ctx.save();
+        ctx.translate(offsetX, offsetY);
+        ctx.scale(scale, scale);
+
+        currentClassicalRegisters = circuitData.classicalRegisters || [];
+        const numQubits = circuitData.numQubits || 1;
+        const numClbits = circuitData.numClbits || 0;
+        const slots = assignTimeSlots(circuitData);
+        const numSlots = Math.max(1, ...slots.map((s) => s.slot + 1), 1);
+        const totalWidth = PADDING_LEFT + numSlots * SLOT_WIDTH + PADDING_RIGHT;
+
+        // Background
+        ctx.fillStyle = "#0d0d24";
+        ctx.fillRect(
+          0,
+          0,
+          totalWidth + 100,
+          PADDING_TOP + (numQubits + numClbits) * WIRE_SPACING + PADDING_BOTTOM,
+        );
+
+        // Draw qubit wires
+        for (let i = 0; i < numQubits; i++) {
+          const y = PADDING_TOP + i * WIRE_SPACING + WIRE_SPACING / 2;
+          ctx.strokeStyle = "#4a4a8a";
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(PADDING_LEFT - 10, y);
+          ctx.lineTo(PADDING_LEFT + numSlots * SLOT_WIDTH + 10, y);
+          ctx.stroke();
+          // Label
+          ctx.fillStyle = "#06b6d4";
+          ctx.font = "bold 12px monospace";
+          ctx.textAlign = "right";
+          ctx.textBaseline = "middle";
+          ctx.fillText(`q${i}`, PADDING_LEFT - 16, y);
+        }
+
+        // Draw classical bit wires (double line)
+        for (let i = 0; i < numClbits; i++) {
+          const y = PADDING_TOP + (numQubits + i) * WIRE_SPACING +
+            WIRE_SPACING / 2;
+          ctx.strokeStyle = "#3a3a6a";
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 3]);
+          ctx.beginPath();
+          ctx.moveTo(PADDING_LEFT - 10, y - 2);
+          ctx.lineTo(PADDING_LEFT + numSlots * SLOT_WIDTH + 10, y - 2);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(PADDING_LEFT - 10, y + 2);
+          ctx.lineTo(PADDING_LEFT + numSlots * SLOT_WIDTH + 10, y + 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          // Label
+          ctx.fillStyle = "#94a3b8";
+          ctx.font = "bold 12px monospace";
+          ctx.textAlign = "right";
+          ctx.textBaseline = "middle";
+          ctx.fillText(
+            formatClbitLabel(i, currentClassicalRegisters),
+            PADDING_LEFT - 16,
+            y,
+          );
+        }
+
+        // Draw gates
+        for (const inst of slots) {
+          const x = PADDING_LEFT + inst.slot * SLOT_WIDTH + SLOT_WIDTH / 2;
+          const operation = (inst.operation || inst.name || "").toLowerCase();
+          const label = inst.label || inst.name || inst.operation || "U";
+          const hasClassicalCondition =
+            getInstructionConditions(inst).length > 0 &&
+            !isControlFlowOperation(operation);
+
+          // Check for gate modifiers (ctrl, negctrl, inv, pow)
+          const modifiers = inst.modifiers || [];
+          const hasModifiers = modifiers.length > 0;
+
+          if (operation === "pragma") {
+            drawPragma(ctx, x, inst, numQubits, numSlots);
+          } else if (operation === "classical_assign") {
+            drawClassicalAssign(ctx, x, inst, numQubits);
+          } else if (operation === "call_subroutine") {
+            drawSubroutineCall(ctx, x, inst);
+          } else if (operation === "return") {
+            drawReturnOp(ctx, x, inst);
+          } else if (operation === "measure" || operation === "measurement") {
+            drawMeasurement(
+              ctx,
+              x,
+              inst.qubits[0],
+              inst.clbits ? inst.clbits[0] : 0,
+              numQubits,
+            );
+          } else if (operation === "barrier") {
+            drawBarrier(ctx, x, inst.qubits, numQubits);
+          } else if (hasModifiers) {
+            drawModifiedGate(ctx, x, inst, modifiers);
+          } else if (operation === "swap" || operation === "iswap") {
+            drawSwap(ctx, x, inst.qubits, operation.toUpperCase());
+          } else if (operation === "cx" || operation === "cnot") {
+            drawCNOT(ctx, x, inst.qubits);
+          } else if (operation === "ccx" || operation === "toffoli") {
+            drawToffoli(ctx, x, inst.qubits);
+          } else if (operation === "cswap" || operation === "fredkin") {
+            drawControlledGate(
+              ctx,
+              x,
+              inst.qubits.slice(0, -2),
+              inst.qubits.slice(-2),
+              "SWAP",
+            );
+          } else if (
+            operation === "c3x" || operation === "c4x" || operation === "rc3x"
+          ) {
+            const controls = inst.qubits.slice(0, -1);
+            const targets = inst.qubits.slice(-1);
+            drawControlledGate(
+              ctx,
+              x,
+              controls,
+              targets,
+              operation === "rc3x" ? "RX" : "X",
+            );
+          } else if (operation === "c3sx") {
+            const controls = inst.qubits.slice(0, -1);
+            const targets = inst.qubits.slice(-1);
+            drawControlledGate(ctx, x, controls, targets, "SX");
+          } else if (operation === "mcx") {
+            const controls = inst.qubits.slice(0, -1);
+            const targets = inst.qubits.slice(-1);
+            drawControlledGate(ctx, x, controls, targets, "X");
+          } else if (operation === "mcp" || operation === "mcphase") {
+            const controls = inst.qubits.slice(0, -1);
+            const targets = inst.qubits.slice(-1);
+            drawControlledGate(
+              ctx,
+              x,
+              controls,
+              targets,
+              formatGateName("P", inst.params),
+            );
+          } else if (operation === "ccz") {
+            drawControlledGate(
+              ctx,
+              x,
+              inst.qubits.slice(0, -1),
+              inst.qubits.slice(-1),
+              "Z",
+            );
+          } else if (
+            inst.kind === "gate" &&
+            operation.startsWith("c") && operation.length > 1 &&
+            !["complex", "ccx", "ccz", "cswap", "cx", "cnot"].includes(
+              operation,
+            )
+          ) {
+            // Generic single-control gate (cz, cy, cp, crx, cry, crz, cs,
+            // csdg, csx, ch, cu, ...). The first qubit is the control.
+            const baseName = operation.substring(1).toUpperCase();
+            if (inst.qubits.length >= 2) {
+              const controls = inst.qubits.slice(0, -1);
+              const targets = inst.qubits.slice(-1);
+              drawControlledGate(
+                ctx,
+                x,
+                controls,
+                targets,
+                formatGateName(baseName, inst.params),
+              );
+            } else {
+              drawGateBox(
+                ctx,
+                x,
+                inst.qubits[0],
+                formatGateName(label, inst.params),
+              );
+            }
+          } else if (operation === "if_test" || operation === "if") {
+            drawControlFlow(ctx, x, inst, "if", numQubits);
+          } else if (operation === "for_loop" || operation === "for") {
+            drawControlFlow(ctx, x, inst, "for", numQubits);
+          } else if (operation === "while_loop" || operation === "while") {
+            drawControlFlow(ctx, x, inst, "while", numQubits);
+          } else if (operation === "switch") {
+            drawControlFlow(ctx, x, inst, "switch", numQubits);
+          } else if (operation === "box") {
+            drawControlFlow(ctx, x, inst, "box", numQubits);
+          } else if (operation === "reset") {
+            drawGateBox(ctx, x, inst.qubits[0], "Reset");
+          } else if (operation === "delay") {
+            if (inst.qubits.length <= 1) {
+              drawGateBox(ctx, x, inst.qubits[0] || 0, "Delay");
+            } else {
+              drawMultiQubitGate(ctx, x, inst.qubits, "Delay");
+            }
+          } else if (operation === "prepare_state") {
+            if (inst.qubits.length === 1) {
+              drawGateBox(ctx, x, inst.qubits[0], "Prep");
+            } else {
+              drawMultiQubitGate(ctx, x, inst.qubits, "PrepState");
+            }
+          } else if (operation === "initialize") {
+            if (inst.qubits.length === 1) {
+              drawGateBox(ctx, x, inst.qubits[0], "Init");
+            } else {
+              drawMultiQubitGate(ctx, x, inst.qubits, "Init");
+            }
+          } else if (operation === "gphase") {
+            // Zero-qubit phase: render at the top wire as a slim badge.
+            drawGateBox(ctx, x, 0, formatGateName("gphase", inst.params));
+          } else if (
+            operation === "expression_statement" ||
+            operation === "annotation"
+          ) {
+            drawClassicalAssign(ctx, x, inst, numQubits);
+          } else if (inst.qubits.length === 1) {
+            drawGateBox(
+              ctx,
+              x,
+              inst.qubits[0],
+              formatGateName(label, inst.params),
+            );
+          } else if (inst.qubits.length > 1) {
+            // Multi-qubit non-controlled gate
+            drawMultiQubitGate(
+              ctx,
+              x,
+              inst.qubits,
+              formatGateName(label, inst.params),
+            );
+          }
+
+          if (hasClassicalCondition) {
+            drawClassicalCondition(ctx, x, inst, numQubits);
+          }
+
+          // Draw annotations above the gate
+          if (inst.annotations && inst.annotations.length > 0) {
+            drawAnnotations(ctx, x, inst);
+          }
+        }
+
+        // Draw legend for gate definitions, classical variables, subroutines, externs
+        const legendH = getLegendHeight(circuitData);
+        if (legendH > 0) {
+          let ly = PADDING_TOP + (numQubits + numClbits) * WIRE_SPACING + 20;
+
+          ctx.save();
+          // Separator line
+          ctx.strokeStyle = "#2d2d5e";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(10, ly);
+          ctx.lineTo(totalWidth - 10, ly);
+          ctx.stroke();
+          ly += 16;
+
+          ctx.font = "11px monospace";
+          ctx.textAlign = "left";
+          ctx.textBaseline = "top";
+
+          if (
+            circuitData.gateDefinitions &&
+            circuitData.gateDefinitions.length > 0
+          ) {
+            ctx.fillStyle = "#7c3aed";
+            ctx.font = "bold 11px monospace";
+            ctx.fillText("Gate Definitions:", 16, ly);
+            ly += 16;
+            ctx.font = "11px monospace";
+            for (const gd of circuitData.gateDefinitions) {
+              ctx.fillStyle = "#94a3b8";
+              const params = gd.params && gd.params.length > 0
+                ? `(${gd.params.join(", ")})`
+                : "";
+              const qubits = gd.qubits && gd.qubits.length > 0
+                ? ` ${gd.qubits.join(", ")}`
+                : "";
+              ctx.fillText(`  gate ${gd.name}${params}${qubits}`, 16, ly);
+              ly += 16;
+            }
+          }
+
+          if (
+            circuitData.classicalVariables &&
+            circuitData.classicalVariables.length > 0
+          ) {
+            ctx.fillStyle = "#38bdf8";
+            ctx.font = "bold 11px monospace";
+            ctx.fillText("Classical Variables:", 16, ly);
+            ly += 16;
+            ctx.font = "11px monospace";
+            const vars = circuitData.classicalVariables.slice(0, 4);
+            for (const cv of vars) {
+              ctx.fillStyle = "#94a3b8";
+              const mod = cv.modifier ? `${cv.modifier} ` : "";
+              ctx.fillText(`  ${mod}${cv.type} ${cv.name}`, 16, ly);
+              ly += 16;
+            }
+            if (circuitData.classicalVariables.length > 4) {
+              ctx.fillStyle = "#64748b";
+              ctx.fillText(
+                `  ... and ${circuitData.classicalVariables.length - 4} more`,
+                16,
+                ly,
+              );
+              ly += 16;
+            }
+          }
+
+          if (
+            circuitData.subroutineDefinitions &&
+            circuitData.subroutineDefinitions.length > 0
+          ) {
+            ctx.fillStyle = "#4ade80";
+            ctx.font = "bold 11px monospace";
+            ctx.fillText("Subroutines:", 16, ly);
+            ly += 16;
+            ctx.font = "11px monospace";
+            for (const sd of circuitData.subroutineDefinitions) {
+              ctx.fillStyle = "#94a3b8";
+              const params = sd.params && sd.params.length > 0
+                ? `(${sd.params.join(", ")})`
+                : "()";
+              ctx.fillText(`  def ${sd.name}${params}`, 16, ly);
+              ly += 16;
+            }
+          }
+
+          if (
+            circuitData.externDeclarations &&
+            circuitData.externDeclarations.length > 0
+          ) {
+            ctx.fillStyle = "#fb923c";
+            ctx.font = "bold 11px monospace";
+            ctx.fillText("Externs:", 16, ly);
+            ly += 16;
+            ctx.font = "11px monospace";
+            for (const ed of circuitData.externDeclarations) {
+              ctx.fillStyle = "#94a3b8";
+              ctx.fillText(`  extern ${ed.name}`, 16, ly);
+              ly += 16;
+            }
+          }
+
+          ctx.restore();
+        }
+
+        ctx.restore();
+      }
+
+      function formatGateName(name, params) {
+        let display = (name || "U").toUpperCase();
+        // Clean up common names
+        if (display === "ID") display = "ID";
+        if (display === "SDG") display = "Sdg";
+        if (display === "TDG") display = "Tdg";
+        if (display === "SXDG") display = "SXdg";
+
+        if (params && params.length > 0) {
+          const pStr = params.map((p) => {
+            if (typeof p === "number") {
+              return Math.abs(p % 1) < 0.001
+                ? String(Math.round(p))
+                : p.toFixed(2);
+            }
+            return String(p);
+          }).join(",");
+          display += `(${pStr})`;
+        }
+        return display;
+      }
+
+      function wireY(qubit) {
+        return PADDING_TOP + qubit * WIRE_SPACING + WIRE_SPACING / 2;
+      }
+
+      function clbitY(clbit, numQubits) {
+        return PADDING_TOP + (numQubits + clbit) * WIRE_SPACING +
+          WIRE_SPACING / 2;
+      }
+
+      function getInstructionAnchorY(inst, numQubits) {
+        const ys = (inst.qubits && inst.qubits.length > 0)
+          ? inst.qubits.map((q) => wireY(q))
+          : (inst.clbits || []).map((c) => clbitY(c, numQubits));
+        if (ys.length === 0) return wireY(0);
+        return (Math.min(...ys) + Math.max(...ys)) / 2;
+      }
+
+      function getInstructionTopY(inst, numQubits) {
+        const ys = (inst.qubits && inst.qubits.length > 0)
+          ? inst.qubits.map((q) => wireY(q))
+          : (inst.clbits || []).map((c) => clbitY(c, numQubits));
+        if (ys.length === 0) return wireY(0);
+        return Math.min(...ys);
+      }
+
+      function drawGateBox(ctx, x, qubit, label) {
+        const y = wireY(qubit);
+        const w = Math.max(GATE_W, ctx.measureText(label).width + 20 || GATE_W);
+        const h = GATE_H;
+
+        // Box
+        ctx.fillStyle = "#1e1e4a";
+        ctx.strokeStyle = "#7c3aed";
+        ctx.lineWidth = 2;
+        roundRect(ctx, x - w / 2, y - h / 2, w, h, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        // Text
+        ctx.fillStyle = "#e2e8f0";
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, x, y);
+      }
+
+      function drawControlDot(ctx, x, qubit) {
+        const y = wireY(qubit);
+        ctx.fillStyle = "#06b6d4";
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      function drawCNOT(ctx, x, qubits) {
+        if (qubits.length < 2) return;
+        const control = qubits[0];
+        const target = qubits[1];
+        const cy = wireY(control);
+        const ty = wireY(target);
+
+        // Vertical line
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, cy);
+        ctx.lineTo(x, ty);
+        ctx.stroke();
+
+        // Control dot
+        drawControlDot(ctx, x, control);
+
+        // Target ⊕
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, ty, 12, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x - 12, ty);
+        ctx.lineTo(x + 12, ty);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, ty - 12);
+        ctx.lineTo(x, ty + 12);
+        ctx.stroke();
+      }
+
+      function drawToffoli(ctx, x, qubits) {
+        if (qubits.length < 3) return;
+        const controls = qubits.slice(0, -1);
+        const target = qubits[qubits.length - 1];
+        const allY = qubits.map((q) => wireY(q));
+        const minY = Math.min(...allY);
+        const maxY = Math.max(...allY);
+
+        // Vertical line
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, minY);
+        ctx.lineTo(x, maxY);
+        ctx.stroke();
+
+        // Control dots
+        for (const c of controls) drawControlDot(ctx, x, c);
+
+        // Target ⊕
+        const ty = wireY(target);
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, ty, 12, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x - 12, ty);
+        ctx.lineTo(x + 12, ty);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, ty - 12);
+        ctx.lineTo(x, ty + 12);
+        ctx.stroke();
+      }
+
+      function drawControlledGate(ctx, x, controls, targets, label) {
+        const allQubits = [...controls, ...targets];
+        const allY = allQubits.map((q) => wireY(q));
+        const minY = Math.min(...allY);
+        const maxY = Math.max(...allY);
+
+        // Vertical line
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, minY);
+        ctx.lineTo(x, maxY);
+        ctx.stroke();
+
+        for (const c of controls) drawControlDot(ctx, x, c);
+        for (const t of targets) drawGateBox(ctx, x, t, label);
+      }
+
+      function drawSwap(ctx, x, qubits, label) {
+        if (qubits.length < 2) return;
+        const y0 = wireY(qubits[0]);
+        const y1 = wireY(qubits[1]);
+
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, y0);
+        ctx.lineTo(x, y1);
+        ctx.stroke();
+
+        // Draw X marks
+        for (const q of [qubits[0], qubits[1]]) {
+          const y = wireY(q);
+          ctx.strokeStyle = "#06b6d4";
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(x - 8, y - 8);
+          ctx.lineTo(x + 8, y + 8);
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x + 8, y - 8);
+          ctx.lineTo(x - 8, y + 8);
+          ctx.stroke();
+        }
+      }
+
+      function drawMeasurement(ctx, x, qubit, clbit, numQubits) {
+        const qy = wireY(qubit);
+        const cy = clbitY(clbit, numQubits);
+
+        // Measurement box
+        const w = GATE_W;
+        const h = GATE_H;
+        ctx.fillStyle = "#1a3a2a";
+        ctx.strokeStyle = "#22c55e";
+        ctx.lineWidth = 2;
+        roundRect(ctx, x - w / 2, qy - h / 2, w, h, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#22c55e";
+        ctx.font = "bold 14px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("M", x, qy);
+
+        // Arrow to classical bit
+        if (cy > qy) {
+          ctx.strokeStyle = "#22c55e";
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.moveTo(x, qy + h / 2);
+          ctx.lineTo(x, cy);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          // Arrow head
+          ctx.fillStyle = "#22c55e";
+          ctx.beginPath();
+          ctx.moveTo(x, cy);
+          ctx.lineTo(x - 4, cy - 8);
+          ctx.lineTo(x + 4, cy - 8);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      function drawBarrier(ctx, x, qubits) {
+        ctx.strokeStyle = "#94a3b8";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 4]);
+        const ys = qubits.map((q) => wireY(q));
+        const minY = Math.min(...ys) - WIRE_SPACING / 3;
+        const maxY = Math.max(...ys) + WIRE_SPACING / 3;
+        ctx.beginPath();
+        ctx.moveTo(x, minY);
+        ctx.lineTo(x, maxY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      function drawControlFlow(ctx, x, inst, label, numQubits) {
+        const ys = [
+          ...(inst.qubits || []).map((q) => wireY(q)),
+          ...(inst.clbits || []).map((c) => clbitY(c, numQubits)),
+        ];
+        if (ys.length === 0) ys.push(wireY(0));
+        const minY = Math.min(...ys) - WIRE_SPACING / 2 + 4;
+        const maxY = Math.max(...ys) + WIRE_SPACING / 2 - 4;
+        const flowLabel = inst.renderLabel || label;
+        ctx.font = "bold 11px monospace";
+        const w = Math.max(
+          SLOT_WIDTH - 8,
+          (ctx.measureText(flowLabel).width || 30) + 24,
+        );
+
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 3]);
+        roundRect(ctx, x - w / 2, minY, w, maxY - minY, 8);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "#f59e0b";
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(flowLabel, x, (minY + maxY) / 2);
+      }
+
+      function drawConditionBadge(ctx, x, y, text) {
+        if (!text) return;
+
+        ctx.font = "bold 10px monospace";
+        const w = Math.max(28, ctx.measureText(text).width + 12);
+        const h = 18;
+
+        ctx.fillStyle = "#0a0a1a";
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 1.5;
+        roundRect(ctx, x - w / 2, y - h / 2, w, h, 5);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#f59e0b";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, x, y);
+      }
+
+      function drawClassicalCondition(ctx, x, inst, numQubits) {
+        const conditions = getInstructionConditions(inst);
+        if (conditions.length === 0) return;
+
+        const anchorY = getInstructionAnchorY(inst, numQubits);
+        const badgeY = getInstructionTopY(inst, numQubits) - GATE_H / 2 - 12;
+
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+
+        for (const condition of conditions) {
+          for (const bit of normalizeClassicalRegister(condition.register)) {
+            const cy = clbitY(bit, numQubits);
+            ctx.beginPath();
+            ctx.moveTo(x, cy);
+            ctx.lineTo(x, anchorY);
+            ctx.stroke();
+
+            ctx.fillStyle = "#f59e0b";
+            ctx.beginPath();
+            ctx.arc(x, cy, 4.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        ctx.setLineDash([]);
+        drawConditionBadge(
+          ctx,
+          x,
+          badgeY,
+          conditions.map((condition) => formatConditionLabel(condition)).join(
+            " & ",
+          ),
+        );
+      }
+
+      // --- New drawing functions for Revision 2 features ---
+
+      function drawModifiedGate(ctx, x, inst, modifiers) {
+        // Count control qubits from modifiers
+        let ctrlCount = 0;
+        let negctrlCount = 0;
+        let labelSuffix = "";
+        for (const mod of modifiers) {
+          if (mod.type === "ctrl") ctrlCount += mod.argument || 1;
+          else if (mod.type === "negctrl") negctrlCount += mod.argument || 1;
+          else if (mod.type === "inv") labelSuffix += "\u2020"; // dagger
+          else if (mod.type === "pow") {
+            labelSuffix += "^" +
+              (mod.argument !== undefined ? mod.argument : "k");
+          }
+        }
+        const totalControls = ctrlCount + negctrlCount;
+        const qubits = inst.qubits || [];
+        const baseName = formatGateName(
+          inst.label || inst.name || inst.operation || "U",
+          inst.params,
+        ) + labelSuffix;
+
+        if (totalControls > 0 && qubits.length > totalControls) {
+          const allY = qubits.map((q) => wireY(q));
+          const minY = Math.min(...allY);
+          const maxY = Math.max(...allY);
+
+          // Vertical connecting line
+          ctx.strokeStyle = "#06b6d4";
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x, minY);
+          ctx.lineTo(x, maxY);
+          ctx.stroke();
+
+          // Draw control dots (filled for ctrl, open for negctrl)
+          let idx = 0;
+          for (const mod of modifiers) {
+            if (mod.type === "ctrl") {
+              const count = mod.argument || 1;
+              for (let i = 0; i < count && idx < qubits.length; i++, idx++) {
+                drawControlDot(ctx, x, qubits[idx]);
+              }
+            } else if (mod.type === "negctrl") {
+              const count = mod.argument || 1;
+              for (let i = 0; i < count && idx < qubits.length; i++, idx++) {
+                drawNegControlDot(ctx, x, qubits[idx]);
+              }
+            }
+          }
+
+          // Target qubits get the gate box
+          const targets = qubits.slice(totalControls);
+          if (targets.length === 1) {
+            // Special case: if base operation is X/CX, draw target-plus symbol
+            const baseOp = (inst.operation || "").toLowerCase();
+            if (baseOp === "x" || baseOp === "cx" || baseOp === "cnot") {
+              drawTargetPlus(ctx, x, targets[0]);
+            } else {
+              drawGateBox(ctx, x, targets[0], baseName);
+            }
+          } else if (targets.length > 1) {
+            drawMultiQubitGate(ctx, x, targets, baseName);
+          }
+        } else {
+          // No controls, just label decoration (inv/pow only)
+          if (qubits.length === 1) {
+            drawGateBox(ctx, x, qubits[0], baseName);
+          } else if (qubits.length > 1) {
+            drawMultiQubitGate(ctx, x, qubits, baseName);
+          }
+        }
+      }
+
+      function drawNegControlDot(ctx, x, qubit) {
+        const y = wireY(qubit);
+        // Open circle for negative control
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = 2;
+        ctx.fillStyle = "#0d0d24";
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+
+      function drawTargetPlus(ctx, x, qubit) {
+        const ty = wireY(qubit);
+        ctx.strokeStyle = "#06b6d4";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, ty, 12, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x - 12, ty);
+        ctx.lineTo(x + 12, ty);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x, ty - 12);
+        ctx.lineTo(x, ty + 12);
+        ctx.stroke();
+      }
+
+      function drawAnnotations(ctx, x, inst) {
+        const qubits = inst.qubits || [0];
+        const topY = Math.min(...qubits.map((q) => wireY(q))) - GATE_H / 2 - 6;
+        const annotations = inst.annotations || [];
+        for (let i = 0; i < annotations.length; i++) {
+          const text = annotations[i].content || "";
+          if (!text) continue;
+          const y = topY - (annotations.length - 1 - i) * 14;
+          ctx.fillStyle = "#a78bfa";
+          ctx.font = "italic 9px monospace";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          ctx.fillText(
+            text.length > 20 ? text.substring(0, 18) + ".." : text,
+            x,
+            y,
+          );
+        }
+      }
+
+      function drawPragma(ctx, x, inst, numQubits, numSlots) {
+        const y = wireY(0);
+        const label = inst.label || inst.name || "pragma";
+        const displayText = label.length > 18
+          ? label.substring(0, 16) + ".."
+          : label;
+
+        ctx.font = "bold 10px monospace";
+        const w = Math.max(
+          SLOT_WIDTH - 8,
+          ctx.measureText(displayText).width + 16,
+        );
+        const h = 22;
+
+        // Distinctive purple-orange pragma strip
+        ctx.fillStyle = "#2d1b4e";
+        ctx.strokeStyle = "#c084fc";
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([3, 2]);
+        roundRect(ctx, x - w / 2, y - h / 2, w, h, 4);
+        ctx.fill();
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = "#c084fc";
+        ctx.font = "bold 10px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(displayText, x, y);
+      }
+
+      function drawClassicalAssign(ctx, x, inst, numQubits) {
+        const y = wireY(inst.qubits ? inst.qubits[0] : 0);
+        const label = inst.label || inst.name || "assign";
+        const displayText = label.length > 16
+          ? label.substring(0, 14) + ".."
+          : label;
+
+        ctx.font = "bold 10px monospace";
+        const w = Math.max(GATE_W, ctx.measureText(displayText).width + 16);
+        const h = GATE_H;
+
+        ctx.fillStyle = "#1a2a3a";
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 2;
+        roundRect(ctx, x - w / 2, y - h / 2, w, h, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        // Double-line left border to indicate classical operation
+        ctx.strokeStyle = "#38bdf8";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x - w / 2 + 4, y - h / 2 + 3);
+        ctx.lineTo(x - w / 2 + 4, y + h / 2 - 3);
+        ctx.stroke();
+
+        ctx.fillStyle = "#38bdf8";
+        ctx.font = "bold 10px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(displayText, x, y);
+      }
+
+      function drawSubroutineCall(ctx, x, inst) {
+        const qubits = inst.qubits || [0];
+        const label = inst.label || inst.name || "sub()";
+        const displayText = label.length > 14
+          ? label.substring(0, 12) + ".."
+          : label;
+
+        if (qubits.length === 1) {
+          const y = wireY(qubits[0]);
+          const w = Math.max(
+            GATE_W + 8,
+            ctx.measureText(displayText).width + 24,
+          );
+          const h = GATE_H;
+
+          // Double-bordered box for subroutine
+          ctx.fillStyle = "#1e2e1e";
+          ctx.strokeStyle = "#4ade80";
+          ctx.lineWidth = 2;
+          roundRect(ctx, x - w / 2, y - h / 2, w, h, 6);
+          ctx.fill();
+          ctx.stroke();
+          // Inner border
+          ctx.strokeStyle = "#4ade80";
+          ctx.lineWidth = 1;
+          roundRect(ctx, x - w / 2 + 3, y - h / 2 + 3, w - 6, h - 6, 4);
+          ctx.stroke();
+
+          ctx.fillStyle = "#4ade80";
+          ctx.font = "bold 10px monospace";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(displayText, x, y);
+        } else {
+          const ys = qubits.map((q) => wireY(q));
+          const minY = Math.min(...ys) - GATE_H / 2;
+          const maxY = Math.max(...ys) + GATE_H / 2;
+          const w = Math.max(
+            GATE_W + 8,
+            ctx.measureText(displayText).width + 24,
+          );
+
+          ctx.fillStyle = "#1e2e1e";
+          ctx.strokeStyle = "#4ade80";
+          ctx.lineWidth = 2;
+          roundRect(ctx, x - w / 2, minY, w, maxY - minY, 6);
+          ctx.fill();
+          ctx.stroke();
+          ctx.lineWidth = 1;
+          roundRect(ctx, x - w / 2 + 3, minY + 3, w - 6, maxY - minY - 6, 4);
+          ctx.stroke();
+
+          ctx.fillStyle = "#4ade80";
+          ctx.font = "bold 10px monospace";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(displayText, x, (minY + maxY) / 2);
+        }
+      }
+
+      function drawReturnOp(ctx, x, inst) {
+        const y = wireY(inst.qubits ? inst.qubits[0] : 0);
+        const w = GATE_W;
+        const h = GATE_H;
+
+        ctx.fillStyle = "#2a1a1a";
+        ctx.strokeStyle = "#f87171";
+        ctx.lineWidth = 2;
+        roundRect(ctx, x - w / 2, y - h / 2, w, h, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#f87171";
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("RET", x, y);
+      }
+
+      function drawMultiQubitGate(ctx, x, qubits, label) {
+        const ys = qubits.map((q) => wireY(q));
+        const minY = Math.min(...ys) - GATE_H / 2;
+        const maxY = Math.max(...ys) + GATE_H / 2;
+        const w = Math.max(GATE_W, (ctx.measureText(label).width || 30) + 20);
+
+        ctx.fillStyle = "#1e1e4a";
+        ctx.strokeStyle = "#7c3aed";
+        ctx.lineWidth = 2;
+        roundRect(ctx, x - w / 2, minY, w, maxY - minY, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#e2e8f0";
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(label, x, (minY + maxY) / 2);
+      }
+
+      function roundRect(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+        ctx.lineTo(x + r, y + h);
+        ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+        ctx.lineTo(x, y + r);
+        ctx.quadraticCurveTo(x, y, x + r, y);
+        ctx.closePath();
+      }
+    </script>
+  </body>
+</html>
